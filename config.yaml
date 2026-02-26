@@ -1,0 +1,28 @@
+hash:
+  memory: 16384
+  time: 1
+  threads: 1
+  key_len: 32
+  salt_length: 16
+
+http:
+  addr: ":8000"
+  cors_url:
+  - "http://127.0.0.1:7000"
+  - "http://localhost:7000"
+  idle_timeout: "60s"
+  read_timeout: "15s"
+  write_timeout: "30s"
+
+jwt:
+  access_ttl: "30m"
+  refresh_ttl: "168h"
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  name: "go_todo_db"
+  max_idle_conns: 100
+  max_open_conns: 100
+  conn_max_lifetime: "1h"
+
