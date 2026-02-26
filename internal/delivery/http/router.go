@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.UsersHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS) http.Handler {
+func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.UsersHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS) *chi.Mux {
 	mainRouter := chi.NewRouter()
 
 	//mainRouter.Use(middlewares.LoggerMiddleware)
