@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	migrations "todo"
 	"todo/internal/auth"
 	"todo/internal/config"
 	router "todo/internal/delivery/http"
@@ -24,18 +23,19 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
-	client, err := postgres.NewClient(fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
+
+	client, err := postgres.NewClient(cfg.Database.ConnTimeout, fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
 		cfg.Database.Username,
 		cfg.Database.Password,
 		cfg.Database.Host,
 		cfg.Database.Port,
-		cfg.Database.Name), cfg.Database.MaxOpenConns, cfg.Database.MaxIdleConns)
+		cfg.Database.Name), cfg.Database.MaxOpenConns, cfg.Database.MaxIdleConns, cfg.Database.MaxConnLifetime)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create postgres client: %w", err)
 	}
 
-	err = migrations.SetMigrations(fmt.Sprintf("pgx5://%s:%s@%s:%d/%s",
+	err = postgres.SetMigrations(fmt.Sprintf("pgx5://%s:%s@%s:%d/%s",
 		cfg.Database.Username,
 		cfg.Database.Password,
 		cfg.Database.Host,
@@ -77,8 +77,7 @@ func New(cfg *config.Config) (*App, error) {
 }
 
 func (a *App) Run() error {
-	err := a.server.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("app startup failed: %w", err)
 	}
 	return nil

@@ -31,9 +31,9 @@ func (r *taskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Ta
 	err := r.db.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description)
 
 	if err != nil {
-		var Err *pgconn.PgError
-		if errors.As(err, &Err) {
-			if Err.Code == pgerrcode.ForeignKeyViolation {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.ForeignKeyViolation {
 				return nil, apperrors.ErrUserNotFound
 			}
 		}
@@ -78,6 +78,10 @@ func (r *taskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]ent
 		listTask = append(listTask, t)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to get all user tasks: %w", err)
+	}
+
 	return listTask, nil
 }
 
@@ -112,7 +116,6 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 	err := r.db.QueryRow(ctx, query, args...).Scan(&task.Id, &task.Title, &task.Description)
 
 	if err != nil {
-
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperrors.ErrTaskNotFound
 		}
@@ -126,6 +129,7 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 func (r *taskRepository) Delete(ctx context.Context, id, userId int) error {
 	result, err := r.db.Exec(ctx, "DELETE FROM tasks WHERE id = $1 AND user_id = $2", id, userId)
 	if err != nil {
+
 		return fmt.Errorf("failed to delete user task: %w", err)
 	}
 	rows := result.RowsAffected()

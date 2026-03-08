@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewClient(DBPath string, maxConns int32, idleConns int32) (*pgxpool.Pool, error) {
-
+func NewClient(connTimeout time.Duration, DBPath string, maxConns int32, idleConns int32, MaxConnLifetime time.Duration) (*pgxpool.Pool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), connTimeout)
+	defer cancel()
 	config, err := pgxpool.ParseConfig(DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config db: %w", err)
@@ -16,13 +18,16 @@ func NewClient(DBPath string, maxConns int32, idleConns int32) (*pgxpool.Pool, e
 	config.MaxConns = maxConns
 	config.MinConns = idleConns
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	config.MaxConnLifetime = MaxConnLifetime
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pool db: %w", err)
 	}
 
-	err = pool.Ping(context.Background())
+	err = pool.Ping(ctx)
 	if err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("failed to ping db: %w", err)
 	}
 

@@ -41,12 +41,13 @@ type HTTPServer struct {
 type DatabaseConfig struct {
 	Host            string        `yaml:"host" env-default:"localhost"`
 	Name            string        `yaml:"name" env-required:"true"`
-	MaxIdleConns    int32         `yaml:"max_idle_conns" env-default:"5"`
-	MaxOpenConns    int32         `yaml:"max_open_conns" env-default:"25"`
-	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"1h"`
+	MaxIdleConns    int32         `yaml:"max_idle_conns" env-default:"25"`
+	MaxOpenConns    int32         `yaml:"max_open_conns" env-default:"100"`
+	MaxConnLifetime time.Duration `yaml:"max_conn_lifetime" env-default:"1h"`
 	Port            int           `yaml:"port" env-default:"5432"`
 	Username        string        `env:"DB_USERNAME" env-required:"true"`
 	Password        string        `env:"DB_PASSWORD" env-required:"true"`
+	ConnTimeout     time.Duration `yaml:"conn_timeout" env-default:"30s"`
 }
 
 func LoadConfig() (*Config, error) {

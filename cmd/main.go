@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
 	"todo/internal/app"
 	"todo/internal/config"
 )
@@ -28,15 +29,16 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	serverShutdown := make(chan error, 1)
 
+	signal.Notify(shutdown, syscall.SIGTERM, os.Interrupt)
+
 	go func() {
 		err = application.Run()
+
 		if err != nil {
 			serverShutdown <- err
 		}
-
 	}()
 
-	signal.Notify(shutdown, syscall.SIGTERM, os.Interrupt)
 	select {
 	case err := <-serverShutdown:
 		log.Printf("Не удалось запустить сервер: %v", err)
@@ -46,11 +48,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	err = application.Shutdown(ctx)
-
-	if err != nil {
+	if err = application.Shutdown(ctx); err != nil {
 		log.Printf("Failed to shutdown app: %v", err)
 	}
+
 	fmt.Println("Сервер успешно завершил работу")
 
 }

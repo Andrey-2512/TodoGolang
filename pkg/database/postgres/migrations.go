@@ -1,4 +1,4 @@
-package migrations
+package postgres
 
 import (
 	"embed"
@@ -24,6 +24,8 @@ func SetMigrations(DBPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize migrate instance: %w", err)
 	}
+
+	defer m.Close()
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("failed to apply migrations: %w", err)

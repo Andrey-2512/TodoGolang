@@ -39,6 +39,15 @@ func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := u.userService.Register(ctx, &entity.User{Username: userData.Username, Password: userData.Password})
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrUserAlreadyExists) {
 			jsonutil.JSONResponse(map[string]any{"detail": "User already exists"}, w, http.StatusConflict)
 			return
@@ -64,8 +73,17 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 	accessToken, refreshToken, err := u.userService.Login(ctx, &entity.User{Username: userData.Username, Password: userData.Password})
 
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrUserNotFound) || errors.Is(err, apperrors.ErrInvalidCredentials) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Failed to login not correct username or password"}, w, http.StatusUnauthorized)
+			jsonutil.JSONResponse(map[string]any{"detail": "Failed to login incorrect username or password"}, w, http.StatusUnauthorized)
 			return
 		}
 
@@ -91,6 +109,15 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	accessToken, err := u.userService.Refresh(ctx, refreshTokenCookie.Value)
 
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrSessionExpired) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
 			return

@@ -37,6 +37,7 @@ type TaskResponse struct {
 func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
+
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
@@ -47,6 +48,14 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 	tasks, err := h.taskService.GetAllUserTasks(ctx, userId)
 
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
 		jsonutil.JSONResponse(map[string]any{"detail": "Failed to get tasks."}, w, http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +101,13 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 	task, err := h.taskService.GetUserTaskById(ctx, taskId, userId)
 
 	if err != nil {
-
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
@@ -102,6 +117,7 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
+
 	jsonutil.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 
 }
@@ -113,7 +129,7 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 	err := jsonutil.DecodeBody(w, r, &t)
 
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect data."}, w, http.StatusBadRequest)
+		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
 		return
 	}
 
@@ -126,11 +142,19 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	task, err := h.taskService.CreateTask(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrUserNotFound) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 			return
 		}
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to create task."}, w, http.StatusInternalServerError)
+		jsonutil.JSONResponse(map[string]any{"detail": "Failed to create task"}, w, http.StatusInternalServerError)
 		return
 	}
 
@@ -143,7 +167,7 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 	id, err := strconv.Atoi(r.PathValue("task_id"))
 
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect task id."}, w, http.StatusBadRequest)
+		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
 		return
 	}
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
@@ -156,6 +180,15 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 	err = h.taskService.DeleteTask(ctx, id, userId)
 
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
@@ -198,6 +231,15 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
