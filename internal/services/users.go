@@ -3,31 +3,29 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
 	"todo/internal/auth"
 )
 
-type UserRegisterRequest struct {
-	Id           int    `json:"id"`
-	Username     string `json:"username"`
-	HashPassword string `json:"hash_password"`
-}
-
 type usersService struct {
 	usersRepo entity.UsersRepository
 	hasher    auth.Hasher
 	jwt       auth.JWTManager
+	blacklist entity.BlacklistRepository
 }
 
 type UsersService interface {
 	Register(ctx context.Context, user *entity.User) (*entity.User, error)
 	Login(ctx context.Context, userEntity *entity.User) (string, string, error)
-	Refresh(ctx context.Context, refreshToken string) (string, error)
+	Refresh(ctx context.Context, refreshToken string) (string, string, error)
+	RevokeToken(ctx context.Context, token string) error
 }
 
-func NewUsersService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt auth.JWTManager) UsersService {
-	return &usersService{usersRepo: usersRepo, hasher: hasher, jwt: jwt}
+func NewUsersService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt auth.JWTManager, blacklist entity.BlacklistRepository) UsersService {
+	return &usersService{usersRepo: usersRepo, hasher: hasher, jwt: jwt, blacklist: blacklist}
 }
 
 func (u *usersService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
@@ -53,34 +51,76 @@ func (u *usersService) Login(ctx context.Context, userEntity *entity.User) (stri
 		return "", "", apperrors.ErrInvalidCredentials
 	}
 
-	accessToken, err := u.jwt.CreateAccessToken(entity.UserPayload{UserID: user.Id, Username: user.Username})
+	accessToken, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: user.Id, Username: user.Username})
 	if err != nil {
 		return "", "", err
 	}
-	refreshToken, err := u.jwt.CreateRefreshToken(entity.UserPayload{UserID: user.Id, Username: user.Username})
+	refreshToken, err := u.jwt.CreateRefreshToken(&entity.UserPayload{UserID: user.Id, Username: user.Username})
 	if err != nil {
 		return "", "", err
 	}
+
 	return accessToken, refreshToken, nil
 }
 
-func (u *usersService) Refresh(ctx context.Context, refreshToken string) (string, error) {
+func (u *usersService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
 	claims, err := u.jwt.ParseRefreshToken(refreshToken)
-	if err != nil {
 
-		return "", err
+	if err != nil {
+		return "", "", err
 	}
+
+	isBlacklisted, err := u.blacklist.IsBlacklisted(ctx, claims.JTI)
+	if err != nil {
+		return "", "", err
+	}
+	if isBlacklisted {
+		return "", "", apperrors.ErrInvalidToken
+
+	}
+
+	if ttl := time.Until(claims.ExpiresAt.Time); ttl > 0 {
+		err = u.blacklist.Add(ctx, claims.JTI, ttl)
+		if err != nil {
+			return "", "", err
+		}
+	}
+
 	userId := claims.UserId
 	user, err := u.usersRepo.GetById(ctx, userId)
 	if err != nil {
 		if errors.Is(err, apperrors.ErrUserNotFound) {
-			return "", apperrors.ErrInvalidToken
+			return "", "", apperrors.ErrInvalidToken
 		}
-		return "", err
+		return "", "", err
 	}
-	if user == nil {
-		return "", apperrors.ErrInvalidToken
-	}
-	return u.jwt.CreateAccessToken(entity.UserPayload{UserID: userId, Username: user.Username})
 
+	access, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: userId, Username: user.Username})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refresh, err := u.jwt.CreateRefreshToken(&entity.UserPayload{UserID: userId, Username: user.Username})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return access, refresh, nil
+
+}
+
+func (u *usersService) RevokeToken(ctx context.Context, token string) error {
+	claims, err := u.jwt.ParseRefreshToken(token)
+	if err != nil {
+		return err
+	}
+	ttl := time.Until(claims.ExpiresAt.Time)
+	if ttl <= 0 {
+		return nil
+	}
+	err = u.blacklist.Add(ctx, claims.JTI, ttl)
+	if err != nil {
+		return err
+	}
+	return nil
 }

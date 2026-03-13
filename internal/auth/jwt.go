@@ -2,26 +2,27 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type UserClaims struct {
 	UserId    int    `json:"user_id"`
 	Username  string `json:"username"`
 	TokenType string `json:"token_type"`
+	JTI       string `json:"jti"`
 	jwt.RegisteredClaims
 }
 
 type JWTManager interface {
-	CreateAccessToken(user entity.UserPayload) (string, error)
+	CreateAccessToken(user *entity.UserPayload) (string, error)
 	ParseAccessToken(jwtToken string) (*UserClaims, error)
-	VerifyAccessToken(jwtToken string) (bool, error)
-	VerifyRefreshToken(jwtToken string) (bool, error)
-	CreateRefreshToken(user entity.UserPayload) (string, error)
+	CreateRefreshToken(user *entity.UserPayload) (string, error)
 	ParseRefreshToken(jwtToken string) (*UserClaims, error)
 }
 
@@ -35,13 +36,16 @@ func NewJWTManager(secretKey string, accessTTL time.Duration, refreshTTL time.Du
 	return &jwtManager{secretKey: secretKey, accessTTL: accessTTL, refreshTTL: refreshTTL}
 }
 
-func (jwtManager *jwtManager) createToken(user entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
-	claims := UserClaims{Username: user.Username, UserId: user.UserID, TokenType: tokenType, RegisteredClaims: jwt.RegisteredClaims{
+func (jwtManager *jwtManager) createToken(user *entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
+	claims := UserClaims{Username: user.Username, UserId: user.UserID, TokenType: tokenType, JTI: uuid.New().String(), RegisteredClaims: jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 	}}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(jwtManager.secretKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
 
-	return token.SignedString([]byte(jwtManager.secretKey))
+	return token, nil
 }
 
 func (jwtManager *jwtManager) parseToken(jwtToken string, exceptedType string) (*UserClaims, error) {
@@ -72,24 +76,7 @@ func (jwtManager *jwtManager) parseToken(jwtToken string, exceptedType string) (
 	return claims, nil
 }
 
-func (jwtManager *jwtManager) VerifyAccessToken(jwtToken string) (bool, error) {
-	_, err := jwtManager.parseToken(jwtToken, "access")
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (jwtManager *jwtManager) VerifyRefreshToken(jwtToken string) (bool, error) {
-	_, err := jwtManager.parseToken(jwtToken, "refresh")
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (jwtManager *jwtManager) CreateAccessToken(user entity.UserPayload) (string, error) {
-
+func (jwtManager *jwtManager) CreateAccessToken(user *entity.UserPayload) (string, error) {
 	return jwtManager.createToken(user, jwtManager.accessTTL, "access")
 }
 
@@ -97,7 +84,7 @@ func (jwtManager *jwtManager) ParseAccessToken(jwtToken string) (*UserClaims, er
 	return jwtManager.parseToken(jwtToken, "access")
 }
 
-func (jwtManager *jwtManager) CreateRefreshToken(user entity.UserPayload) (string, error) {
+func (jwtManager *jwtManager) CreateRefreshToken(user *entity.UserPayload) (string, error) {
 	return jwtManager.createToken(user, jwtManager.refreshTTL, "refresh")
 }
 

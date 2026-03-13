@@ -73,7 +73,6 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 	accessToken, refreshToken, err := u.userService.Login(ctx, &entity.User{Username: userData.Username, Password: userData.Password})
 
 	if err != nil {
-
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
@@ -91,6 +90,21 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	oldRefreshTokenCookie, err := r.Cookie("refresh_token")
+	if err == nil {
+		err := u.userService.RevokeToken(ctx, oldRefreshTokenCookie.Value)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+				return
+			}
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+
+		}
+	}
+
 	http.SetCookie(w, &http.Cookie{Name: "refresh_token", Value: refreshToken, Secure: false, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 7})
 
 	jsonutil.JSONResponse(map[string]any{"access_token": accessToken}, w, http.StatusOK)
@@ -106,10 +120,9 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		jsonutil.JSONResponse(map[string]any{"detail": "You are not login"}, w, http.StatusUnauthorized)
 		return
 	}
-	accessToken, err := u.userService.Refresh(ctx, refreshTokenCookie.Value)
+	accessToken, refreshToken, err := u.userService.Refresh(ctx, refreshTokenCookie.Value)
 
 	if err != nil {
-
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
@@ -130,6 +143,49 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		jsonutil.JSONResponse(map[string]any{"detail": "Failed to refresh"}, w, http.StatusInternalServerError)
 		return
 	}
+	http.SetCookie(w, &http.Cookie{
+		Name: "refresh_token", Value: refreshToken,
+		Secure:   false,
+		HttpOnly: true,
+		Path:     "/", MaxAge: 60 * 60 * 24 * 7,
+		SameSite: http.SameSiteLaxMode,
+	},
+	)
+
 	jsonutil.JSONResponse(map[string]any{"access_token": accessToken}, w, http.StatusOK)
+
+}
+
+func (u *UsersHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	refreshTokenCookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		jsonutil.JSONResponse(map[string]any{"detail": "You are not login"}, w, http.StatusUnauthorized)
+		return
+	}
+	err = u.userService.RevokeToken(ctx, refreshTokenCookie.Value)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		jsonutil.JSONResponse(map[string]any{"detail": "Failed to logout"}, w, http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Secure:   false,
+		HttpOnly: true,
+		Path:     "/",
+		MaxAge:   -1,
+	})
+
+	jsonutil.JSONResponse(map[string]any{"detail": "Success logout"}, w, http.StatusOK)
 
 }

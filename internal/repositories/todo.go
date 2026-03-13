@@ -26,9 +26,9 @@ func NewTaskRepository(db *pgxpool.Pool) entity.TaskRepository {
 func (r *taskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Task, error) {
 
 	task := &entity.Task{}
-	query := "INSERT INTO tasks (title, description, user_id) VALUES ($1, $2, $3) RETURNING id, title, description"
+	query := "INSERT INTO tasks (title, description, user_id) VALUES ($1, $2, $3) RETURNING id, title, description, user_id"
 
-	err := r.db.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description)
+	err := r.db.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -110,10 +110,10 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 
 	args = append(args, t.UserId)
 
-	query := "UPDATE tasks SET " + strings.Join(queryParts, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = $%d RETURNING id, title, description", ArgID, ArgID+1)
+	query := "UPDATE tasks SET " + strings.Join(queryParts, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = $%d RETURNING id, title, description, user_id", ArgID, ArgID+1)
 
 	var task entity.Task
-	err := r.db.QueryRow(ctx, query, args...).Scan(&task.Id, &task.Title, &task.Description)
+	err := r.db.QueryRow(ctx, query, args...).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

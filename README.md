@@ -23,7 +23,8 @@ The project follows the layered architecture pattern:
 
 ## Prerequisites
 - Go 1.22+
-- PostgreSQL 15+
+- PostgreSQL 
+- Redis
 
 ## 1. Endpoints 🔝
 ```http request
@@ -114,26 +115,39 @@ hash:
 http:
   addr: "0.0.0.0:8000"
   cors_url:
-  - "http://127.0.0.1:7000"
-  - "http://localhost:7000"
+    - "http://127.0.0.1:7000"
+    - "http://localhost:7000"
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
 
 jwt:
-  access_ttl: "30m"
+  access_ttl: "10m"
   refresh_ttl: "168h"
+  blacklist_prefix: "bl:"
 
 database:
   host: "127.0.0.1"
   port: 5432
-  name: "YOUR-DB-NAME"
+  name: "go_todo_db"
   max_idle_conns: 100
   max_open_conns: 100
   max_conn_lifetime: "1h"
   conn_timeout: "30s"
 
+redis:
+  addr: "localhost:6379"
+  db: 0
+  min_idle_conns: 100
+  pool_size: 100
+  read_timeout: "500ms"
+  write_timeout: "500ms"
+  conn_max_lifetime: "1h"
 
+cache:
+  cache_task_ttl: "3m"
+  tasks_cache_prefix: "tasks:"
+  user_tasks_cache_prefix: "user:"
 ```
 
 **.env**
@@ -142,6 +156,7 @@ JWT_SECRET_KEY="YOUR-SUPER-SECRET-KEY"
 CONFIG_PATH="./config.yaml" # Path to your config.yaml
 DB_USERNAME="YOUR-DB-USERNAME"
 DB_PASSWORD="YOUR-DB-PASSWORD"
+REDIS_PASSWORD="YOUR-REDIS-PASSWORD"
 ```
 
 ## 3. Run 🏃‍♂️

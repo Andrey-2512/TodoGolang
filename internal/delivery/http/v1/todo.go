@@ -48,7 +48,6 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 	tasks, err := h.taskService.GetAllUserTasks(ctx, userId)
 
 	if err != nil {
-
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return

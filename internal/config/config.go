@@ -14,12 +14,15 @@ type Config struct {
 	Hash     HashConfig     `yaml:"hash"`
 	Database DatabaseConfig `yaml:"database"`
 	HTTP     HTTPServer     `yaml:"http"`
+	Redis    RedisConfig    `yaml:"redis"`
+	Cache    CacheConfig    `yaml:"cache"`
 }
 
 type JWTConfig struct {
-	SecretKey  string        `env:"JWT_SECRET_KEY" env-required:"true"`
-	AccessTTL  time.Duration `yaml:"access_ttl" env-default:"30m"`
-	RefreshTTL time.Duration `yaml:"refresh_ttl" env-default:"7d"`
+	SecretKey       string        `env:"JWT_SECRET_KEY" env-required:"true"`
+	AccessTTL       time.Duration `yaml:"access_ttl" env-default:"30m"`
+	RefreshTTL      time.Duration `yaml:"refresh_ttl" env-default:"7d"`
+	BlacklistPrefix string        `yaml:"blacklist_prefix" env-default:"bl:"`
 }
 
 type HashConfig struct {
@@ -48,6 +51,23 @@ type DatabaseConfig struct {
 	Username        string        `env:"DB_USERNAME" env-required:"true"`
 	Password        string        `env:"DB_PASSWORD" env-required:"true"`
 	ConnTimeout     time.Duration `yaml:"conn_timeout" env-default:"30s"`
+}
+
+type RedisConfig struct {
+	Addr            string        `yaml:"addr" env-default:"localhost:6379"`
+	Password        string        `env:"REDIS_PASSWORD" env-required:"true"`
+	DB              int           `yaml:"db" env-default:"0"`
+	MinIdleConns    int           `yaml:"min_idle_conns" env-default:"100"`
+	PoolSize        int           `yaml:"pool_size" env-default:"100"`
+	ReadTimeout     time.Duration `yaml:"read_timeout" env-default:"1s"`
+	WriteTimeout    time.Duration `yaml:"write_timeout" env-default:"1s"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"1h"`
+}
+
+type CacheConfig struct {
+	CacheTaskTTL    time.Duration `yaml:"cache_task_ttl" env-default:"1h"`
+	TasksPrefix     string        `yaml:"tasks_cache_prefix" env-default:"tasks:"`
+	UserTasksPrefix string        `yaml:"user_tasks_cache_prefix" env-default:"user:"`
 }
 
 func LoadConfig() (*Config, error) {
