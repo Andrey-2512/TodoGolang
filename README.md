@@ -6,7 +6,7 @@ This TODO API on golang with Clean architecture
 
 This API shows **12 000 RPS** on benchmark on standard computer
 
-Tested with `hey` 
+Tested with `hey`
 ```text
 Requests/sec: 12243.8
 Average latency: 0.0081s
@@ -23,7 +23,7 @@ The project follows the layered architecture pattern:
 
 ## Prerequisites
 - Go 1.22+
-- PostgreSQL 
+- PostgreSQL
 - Redis
 
 ## 1. Endpoints 🔝
@@ -93,6 +93,10 @@ POST /refresh/ Return Refreshed Authorization Token JWT
 
 Authorization Required
 
+```
+
+```http request
+POST /logout/ This endpoint is exiting your account Return 204 No Content
 ```
 
 ## 2. Configuration ⚙

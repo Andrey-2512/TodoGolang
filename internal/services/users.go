@@ -29,6 +29,15 @@ func NewUsersService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt a
 }
 
 func (u *usersService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
+	exists, err := u.usersRepo.Exists(ctx, user.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if exists {
+		return nil, apperrors.ErrUserAlreadyExists
+	}
+
 	hashPassword, err := u.hasher.Hash(user.Password)
 
 	if err != nil {
@@ -70,17 +79,8 @@ func (u *usersService) Refresh(ctx context.Context, refreshToken string) (string
 		return "", "", err
 	}
 
-	isBlacklisted, err := u.blacklist.IsBlacklisted(ctx, claims.JTI)
-	if err != nil {
-		return "", "", err
-	}
-	if isBlacklisted {
-		return "", "", apperrors.ErrInvalidToken
-
-	}
-
 	if ttl := time.Until(claims.ExpiresAt.Time); ttl > 0 {
-		err = u.blacklist.Add(ctx, claims.JTI, ttl)
+		err = u.blacklist.AddNX(ctx, claims.JTI, ttl)
 		if err != nil {
 			return "", "", err
 		}
@@ -118,7 +118,7 @@ func (u *usersService) RevokeToken(ctx context.Context, token string) error {
 	if ttl <= 0 {
 		return nil
 	}
-	err = u.blacklist.Add(ctx, claims.JTI, ttl)
+	err = u.blacklist.AddNX(ctx, claims.JTI, ttl)
 	if err != nil {
 		return err
 	}

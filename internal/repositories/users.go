@@ -77,3 +77,13 @@ func (u *usersRepository) GetByUsername(ctx context.Context, username string) (*
 	return &user, nil
 
 }
+
+func (u *usersRepository) Exists(ctx context.Context, username string) (bool, error) {
+	query := "SELECT EXISTS(SELECT FROM users WHERE username = $1)"
+	var exists bool
+	err := u.db.QueryRow(ctx, query, username).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if user exists: %w", err)
+	}
+	return exists, nil
+}

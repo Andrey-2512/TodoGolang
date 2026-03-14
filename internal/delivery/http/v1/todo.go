@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"todo/internal/jsonutil"
+	"todo/internal/delivery/http/json/render"
 )
 
 type TaskHandler struct {
@@ -41,7 +41,7 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
-		jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+		jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 		return
 	}
 
@@ -49,13 +49,13 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to get tasks."}, w, http.StatusInternalServerError)
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to get tasks."}, w, http.StatusInternalServerError)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	jsonutil.JSONResponse(resp, w, http.StatusOK)
+	jsonrender.JSONResponse(resp, w, http.StatusOK)
 
 }
 
@@ -81,11 +81,11 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Id too big"}, w, http.StatusBadRequest)
+			jsonrender.JSONResponse(map[string]any{"detail": "Id too big"}, w, http.StatusBadRequest)
 			return
 		}
 
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
 		return
 
 	}
@@ -93,7 +93,7 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
-		jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+		jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 		return
 	}
 
@@ -101,23 +101,23 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
 			return
 		}
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
+			jsonrender.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
 		}
 
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to get tasks"}, w, http.StatusInternalServerError)
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to get tasks"}, w, http.StatusInternalServerError)
 		return
 
 	}
 
-	jsonutil.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
+	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 
 }
 
@@ -125,24 +125,24 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	var t TaskRequest
-	err := jsonutil.DecodeBody(w, r, &t)
+	err := jsonrender.DecodeBody(w, r, &t)
 
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
 		return
 	}
 
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
-		jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+		jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 		return
 	}
 
 	task, err := h.taskService.CreateTask(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
@@ -150,14 +150,14 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if errors.Is(err, apperrors.ErrUserNotFound) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+			jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 			return
 		}
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to create task"}, w, http.StatusInternalServerError)
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to create task"}, w, http.StatusInternalServerError)
 		return
 	}
 
-	jsonutil.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusCreated)
+	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusCreated)
 }
 
 func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -166,13 +166,13 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 	id, err := strconv.Atoi(r.PathValue("task_id"))
 
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
 		return
 	}
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
-		jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+		jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 
 		if errors.Is(err, context.DeadlineExceeded) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
@@ -189,12 +189,12 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
+			jsonrender.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
 
 		}
 
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to delete task"}, w, http.StatusInternalServerError)
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to delete task"}, w, http.StatusInternalServerError)
 		return
 	}
 
@@ -205,20 +205,20 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	var t TaskRequest
-	err := jsonutil.DecodeBody(w, r, &t)
+	err := jsonrender.DecodeBody(w, r, &t)
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
 		return
 	}
 	id, err := strconv.Atoi(r.PathValue("task_id"))
 	if err != nil {
-		jsonutil.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)
 		return
 	}
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
 
 	if !ok {
-		jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+		jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 		return
 	}
 
@@ -232,7 +232,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 
 		if errors.Is(err, context.DeadlineExceeded) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
+			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
@@ -240,17 +240,17 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if errors.Is(err, apperrors.ErrTaskNotFound) {
-			jsonutil.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
+			jsonrender.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
 
 		}
 		if errors.Is(err, apperrors.ErrNoFieldsToUpdate) {
-			jsonutil.JSONResponse(map[string]any{"detail": "No fields to update"}, w, http.StatusBadRequest)
+			jsonrender.JSONResponse(map[string]any{"detail": "No fields to update"}, w, http.StatusBadRequest)
 			return
 		}
-		jsonutil.JSONResponse(map[string]any{"detail": "Failed to update"}, w, http.StatusInternalServerError)
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to update"}, w, http.StatusInternalServerError)
 		return
 
 	}
-	jsonutil.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
+	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 }

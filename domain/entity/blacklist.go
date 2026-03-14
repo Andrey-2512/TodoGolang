@@ -7,5 +7,5 @@ import (
 
 type BlacklistRepository interface {
 	IsBlacklisted(ctx context.Context, jti string) (bool, error)
-	Add(ctx context.Context, jti string, exp time.Duration) error
+	AddNX(ctx context.Context, jti string, exp time.Duration) error
 }

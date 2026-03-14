@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"todo/domain/apperrors"
 	"todo/domain/entity"
 
 	"github.com/redis/go-redis/v9"
@@ -27,10 +28,18 @@ func (b *blacklistRepo) IsBlacklisted(ctx context.Context, jti string) (bool, er
 	return val > 0, nil
 }
 
-func (b *blacklistRepo) Add(ctx context.Context, jti string, exp time.Duration) error {
-	cmd := b.redisClient.Set(ctx, b.prefix+jti, "true", exp)
-	if err := cmd.Err(); err != nil {
+func (b *blacklistRepo) AddNX(ctx context.Context, jti string, exp time.Duration) error {
+	res, err := b.redisClient.SetArgs(ctx, b.prefix+jti, "true", redis.SetArgs{
+		Mode: "NX",
+		TTL:  exp,
+	}).Result()
+	if err != nil {
 		return fmt.Errorf("failed to add to blacklist: %w", err)
 	}
+
+	if res != "OK" {
+		return apperrors.ErrInvalidToken
+	}
+
 	return nil
 }

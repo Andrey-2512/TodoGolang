@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"todo/domain/apperrors"
-	contextutil "todo/domain/contextutil"
+	"todo/domain/contextutil"
 	"todo/internal/auth"
-	"todo/internal/jsonutil"
+	"todo/internal/delivery/http/json/render"
 )
 
 type Auth struct {
@@ -23,23 +23,23 @@ func (m *Auth) AuthMiddleware(next http.Handler) http.Handler {
 		fields := strings.Fields(r.Header.Get("Authorization"))
 
 		if len(fields) != 2 || !strings.EqualFold(fields[0], "bearer") {
-			jsonutil.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
+			jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 			return
 		}
 
 		claims, err := m.jwtManager.ParseAccessToken(fields[1])
 		if err != nil {
 			if errors.Is(err, apperrors.ErrSessionExpired) {
-				jsonutil.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
+				jsonrender.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
 				return
 			}
 
 			if errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrInvalidTokenType) {
-				jsonutil.JSONResponse(map[string]any{"detail": "Invalid token"}, w, http.StatusUnauthorized)
+				jsonrender.JSONResponse(map[string]any{"detail": "Invalid token"}, w, http.StatusUnauthorized)
 				return
 			}
 
-			jsonutil.JSONResponse(map[string]any{"detail": "Failed to fetch"}, w, http.StatusInternalServerError)
+			jsonrender.JSONResponse(map[string]any{"detail": "Failed to fetch"}, w, http.StatusInternalServerError)
 			return
 		}
 
