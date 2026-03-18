@@ -81,7 +81,7 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
-			jsonrender.JSONResponse(map[string]any{"detail": "Id too big"}, w, http.StatusBadRequest)
+			jsonrender.JSONResponse(map[string]any{"detail": "Task not found"}, w, http.StatusNotFound)
 			return
 		}
 

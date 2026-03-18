@@ -1,26 +1,25 @@
 hash:
   memory: 65536
-  time: 1
-  threads: 2
+  time: 3
+  threads: 1
   key_len: 32
   salt_length: 16
 
 http:
   addr: "0.0.0.0:8000"
   cors_url:
-  - "http://127.0.0.1:7000"
-  - "http://localhost:7000"
+  - "*"
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
 
 jwt:
-  access_ttl: "10m"
+  access_ttl: "30m"
   refresh_ttl: "168h"
   blacklist_prefix: "bl:"
 
 database:
-  host: "127.0.0.1"
+  host: "localhost"
   port: 5432
   name: "go_todo_db"
   max_idle_conns: 100
@@ -38,7 +37,7 @@ redis:
   conn_max_lifetime: "1h"
 
 cache:
-  cache_task_ttl: "3m"
+  cache_task_ttl: "30m"
   tasks_cache_prefix: "tasks:"
   user_tasks_cache_prefix: "user:"
 

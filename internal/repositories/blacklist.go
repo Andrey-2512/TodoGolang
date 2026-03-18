@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 	"todo/domain/apperrors"
@@ -33,7 +34,11 @@ func (b *blacklistRepo) AddNX(ctx context.Context, jti string, exp time.Duration
 		Mode: "NX",
 		TTL:  exp,
 	}).Result()
+
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return apperrors.ErrTokenAlreadyBlaсklisted
+		}
 		return fmt.Errorf("failed to add to blacklist: %w", err)
 	}
 

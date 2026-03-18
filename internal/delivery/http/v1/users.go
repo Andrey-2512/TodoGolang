@@ -90,21 +90,6 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldRefreshTokenCookie, err := r.Cookie("refresh_token")
-	if err == nil {
-		err := u.userService.RevokeToken(ctx, oldRefreshTokenCookie.Value)
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
-				return
-			}
-			if errors.Is(err, context.Canceled) {
-				return
-			}
-
-		}
-	}
-
 	http.SetCookie(w, &http.Cookie{Name: "refresh_token", Value: refreshToken, Secure: false, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 7})
 
 	jsonrender.JSONResponse(map[string]any{"access_token": accessToken}, w, http.StatusOK)
@@ -123,20 +108,20 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	accessToken, refreshToken, err := u.userService.Refresh(ctx, refreshTokenCookie.Value)
 
 	if err != nil {
+		if errors.Is(err, apperrors.ErrSessionExpired) {
+			jsonrender.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
+			return
+		}
+		if errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrTokenAlreadyBlaсklisted) {
+			jsonrender.JSONResponse(map[string]any{"detail": "Invalid token"}, w, http.StatusUnauthorized)
+			return
+		}
+
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
-			return
-		}
-
-		if errors.Is(err, apperrors.ErrSessionExpired) {
-			jsonrender.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
-			return
-		}
-		if errors.Is(err, apperrors.ErrInvalidToken) {
-			jsonrender.JSONResponse(map[string]any{"detail": "Invalid token"}, w, http.StatusUnauthorized)
 			return
 		}
 
@@ -166,6 +151,19 @@ func (u *UsersHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	err = u.userService.RevokeToken(ctx, refreshTokenCookie.Value)
 	if err != nil {
+		if errors.Is(err, apperrors.ErrTokenAlreadyBlaсklisted) || errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrInvalidTokenType) {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "refresh_token",
+				Value:    "",
+				Secure:   false,
+				HttpOnly: true,
+				Path:     "/",
+				MaxAge:   -1,
+			})
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
@@ -186,6 +184,6 @@ func (u *UsersHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
-	jsonrender.JSONResponse(map[string]any{"detail": "Success logout"}, w, http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 
 }

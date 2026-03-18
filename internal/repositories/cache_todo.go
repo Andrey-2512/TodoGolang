@@ -2,13 +2,14 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 	"todo/domain/entity"
 
+	"encoding/json"
+
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 type cacheTaskRepository struct {
@@ -17,6 +18,7 @@ type cacheTaskRepository struct {
 	userTaskPrefix string
 	taskPrefix     string
 	cacheTTL       time.Duration
+	sft            singleflight.Group
 }
 
 func (c *cacheTaskRepository) taskKey(id, userId int) string {
@@ -47,55 +49,62 @@ func (c *cacheTaskRepository) Create(ctx context.Context, t *entity.Task) (*enti
 func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
 	key := c.taskKey(id, userId)
 	res, err := c.redisClient.Get(ctx, key).Result()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			task, err := c.taskRepo.GetUserTaskById(ctx, id, userId)
-			if err != nil {
-				return nil, err
-			}
-			data, err := json.Marshal(task)
-			if err == nil {
-				c.redisClient.Set(ctx, key, data, c.cacheTTL)
-				return task, nil
-			}
+	if err == nil {
+		var task entity.Task
+		err = json.Unmarshal([]byte(res), &task)
+		if err == nil {
+			return &task, nil
 		}
-	}
-	var task entity.Task
-	err = json.Unmarshal([]byte(res), &task)
-	if err != nil {
 		c.redisClient.Del(ctx, key)
-		return c.taskRepo.GetUserTaskById(ctx, id, userId)
-	}
-	return &task, nil
 
+	}
+
+	v, err, _ := c.sft.Do(key, func() (any, error) {
+		task, err := c.taskRepo.GetUserTaskById(ctx, id, userId)
+		if err != nil {
+			return nil, err
+		}
+		data, err := json.Marshal(task)
+		if err == nil {
+			c.redisClient.Set(ctx, key, data, c.cacheTTL)
+		}
+		return task, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*entity.Task), nil
 }
 
 func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
 	key := c.userTasksKey(userId)
 	res, err := c.redisClient.Get(ctx, key).Result()
 
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			tasks, err := c.taskRepo.GetAllUserTasks(ctx, userId)
-			if err != nil {
-				return nil, err
-			}
-			data, err := json.Marshal(tasks)
-			if err == nil {
-				c.redisClient.Set(ctx, key, data, c.cacheTTL)
-			}
-
+	if err == nil {
+		tasks := make([]entity.Task, 0)
+		err = json.Unmarshal([]byte(res), &tasks)
+		if err == nil {
 			return tasks, nil
 		}
-	}
-
-	tasks := make([]entity.Task, 0)
-	err = json.Unmarshal([]byte(res), &tasks)
-	if err != nil {
 		c.redisClient.Del(ctx, key)
-		return c.taskRepo.GetAllUserTasks(ctx, userId)
 	}
-	return tasks, nil
+	v, err, _ := c.sft.Do(key, func() (any, error) {
+		tasks, err := c.taskRepo.GetAllUserTasks(ctx, userId)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := json.Marshal(tasks)
+		if err == nil {
+			c.redisClient.Set(ctx, key, data, c.cacheTTL)
+		}
+
+		return tasks, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.([]entity.Task), nil
 
 }
 

@@ -34,6 +34,7 @@ func main() {
 	go func() {
 		if err = application.Run(); err != nil {
 			serverShutdown <- err
+
 		}
 	}()
 
