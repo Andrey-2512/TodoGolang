@@ -58,7 +58,7 @@ func New(cfg *config.Config) (*App, error) {
 	taskRepo := repositories.NewTaskRepository(client)
 	cacheTaskRepo := repositories.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)
 	usersRepo := repositories.NewUsersRepository(client)
-	blacklistRepo := repositories.NewBlacklistRepository(redisClient, cfg.JWT.BlacklistPrefix)
+	blacklistRepo := repositories.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
 
 	taskService := services.NewTaskService(cacheTaskRepo)
 	usersService := services.NewUsersService(usersRepo, hasher, jwt, blacklistRepo)

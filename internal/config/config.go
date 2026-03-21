@@ -22,7 +22,7 @@ type JWTConfig struct {
 	SecretKey       string        `env:"JWT_SECRET_KEY" env-required:"true"`
 	AccessTTL       time.Duration `yaml:"access_ttl" env-default:"30m"`
 	RefreshTTL      time.Duration `yaml:"refresh_ttl" env-default:"7d"`
-	BlacklistPrefix string        `yaml:"blacklist_prefix" env-default:"bl:"`
+	WhitelistPrefix string        `yaml:"whitelist_prefix" env-default:"bl:"`
 }
 
 type HashConfig struct {

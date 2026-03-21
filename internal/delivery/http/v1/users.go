@@ -112,7 +112,7 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Your session has been expired, please login again"}, w, http.StatusUnauthorized)
 			return
 		}
-		if errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrTokenAlreadyBlaсklisted) {
+		if errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrTokenAlreadyWhitelisted) || errors.Is(err, apperrors.ErrTokenNotInWhitelist) || errors.Is(err, apperrors.ErrInvalidTokenType) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Invalid token"}, w, http.StatusUnauthorized)
 			return
 		}
@@ -151,7 +151,7 @@ func (u *UsersHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	err = u.userService.RevokeToken(ctx, refreshTokenCookie.Value)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrTokenAlreadyBlaсklisted) || errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrInvalidTokenType) {
+		if errors.Is(err, apperrors.ErrTokenAlreadyWhitelisted) || errors.Is(err, apperrors.ErrInvalidToken) || errors.Is(err, apperrors.ErrInvalidTokenType) {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "refresh_token",
 				Value:    "",

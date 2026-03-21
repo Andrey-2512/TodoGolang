@@ -16,7 +16,7 @@ http:
 jwt:
   access_ttl: "30m"
   refresh_ttl: "168h"
-  blacklist_prefix: "bl:"
+  whitelist_prefix: "wl:"
 
 database:
   host: "localhost"

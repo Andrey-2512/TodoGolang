@@ -59,7 +59,7 @@ func (r *taskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*
 func (r *taskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
 	var listTask = make([]entity.Task, 0)
 
-	query := "SELECT id, title, description FROM tasks WHERE user_id = $1"
+	query := "SELECT id, title, description FROM tasks WHERE user_id = $1 ORDER BY id DESC"
 	rows, err := r.db.Query(ctx, query, userId)
 
 	if err != nil {
