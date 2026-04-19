@@ -10,6 +10,8 @@ import (
 	"todo/domain/entity"
 	"todo/internal/delivery/http/json/render"
 	"todo/internal/services"
+
+	"github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type UsersHandler struct {
@@ -20,21 +22,43 @@ func NewUsersHandler(service services.UsersService) *UsersHandler {
 	return &UsersHandler{userService: service}
 }
 
-type userClaims struct {
+type userRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (r *userRequest) Validate() error {
+	return validation.ValidateStruct(r,
+		validation.Field(
+			&r.Username,
+			validation.Required.Error("Field username required"),
+			validation.Length(8, 64).Error("Username must be between 8 and 64 characters long"),
+		),
+		validation.Field(&r.Password,
+			validation.Required.Error("Field password required"),
+			validation.Length(8, 64).Error("Password must be between 8 and 64 characters long"),
+		),
+	)
+}
 
+func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	var userData userClaims
+	var userData userRequest
 
 	err := jsonrender.DecodeBody(w, r, &userData)
 	if err != nil {
-		jsonrender.JSONResponse(map[string]any{"detail": "Failed to login incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
+	}
+
+	err = userData.Validate()
+
+	if err != nil {
+		for _, e := range err.(validation.Errors) {
+			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+			return
+		}
 	}
 
 	user, err := u.userService.Register(ctx, &entity.User{Username: userData.Username, Password: userData.Password})
@@ -62,11 +86,11 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var userData userClaims
+	var userData userRequest
 
 	err := jsonrender.DecodeBody(w, r, &userData)
 	if err != nil {
-		jsonrender.JSONResponse(map[string]any{"detail": "Failed to login incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
 	}
 

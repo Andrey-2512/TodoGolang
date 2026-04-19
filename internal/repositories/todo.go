@@ -31,8 +31,7 @@ func (r *taskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Ta
 	err := r.db.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 			if pgErr.Code == pgerrcode.ForeignKeyViolation {
 				return nil, apperrors.ErrUserNotFound
 			}
@@ -98,7 +97,7 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 
 	if t.Title != nil {
 		queryParts = append(queryParts, fmt.Sprintf("title = $%d", ArgID))
-		args = append(args, *t.Title)
+		args = append(args, t.Title)
 		ArgID++
 	}
 

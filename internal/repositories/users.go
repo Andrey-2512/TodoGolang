@@ -29,9 +29,10 @@ func (u *usersRepository) Create(ctx context.Context, user *entity.User) (*entit
 	err := u.db.QueryRow(ctx, query, user.Username, user.Password).Scan(&id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return nil, apperrors.ErrUserAlreadyExists
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
+			if pgErr.Code == pgerrcode.UniqueViolation {
+				return nil, apperrors.ErrUserNotFound
+			}
 		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}

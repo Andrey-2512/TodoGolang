@@ -3,15 +3,16 @@ package delivery
 import (
 	"context"
 	"errors"
-	"todo/domain/apperrors"
-	"todo/domain/contextutil"
-	"todo/domain/entity"
-	"todo/internal/services"
-
 	"net/http"
 	"strconv"
 	"time"
+	"todo/domain/apperrors"
+	"todo/domain/contextutil"
+	"todo/domain/entity"
 	"todo/internal/delivery/http/json/render"
+	"todo/internal/services"
+
+	"github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type TaskHandler struct {
@@ -23,14 +24,31 @@ func NewTaskHandler(taskService services.TaskService) *TaskHandler {
 	return &TaskHandler{taskService: taskService}
 }
 
-type TaskRequest struct {
+type TaskCreateRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 }
 
+type TaskUpdateRequest struct {
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+}
+
+func (r *TaskCreateRequest) Validate() error {
+	return validation.ValidateStruct(r,
+		validation.Field(&r.Title, validation.Required.Error("Field title required")),
+	)
+}
+
+func (r *TaskUpdateRequest) Validate() error {
+	return validation.ValidateStruct(r,
+		validation.Field(&r.Title, validation.When(r.Title != nil, validation.Required.Error("Field title cannot be empty string"))),
+	)
+}
+
 type TaskResponse struct {
 	Id          int     `json:"id"`
-	Title       *string `json:"title,omitzero"`
+	Title       *string `json:"title"`
 	Description *string `json:"description,omitzero"`
 }
 
@@ -124,12 +142,21 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	var t TaskRequest
+	var t TaskCreateRequest
 	err := jsonrender.DecodeBody(w, r, &t)
 
 	if err != nil {
-		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
+	}
+
+	err = t.Validate()
+
+	if err != nil {
+		for _, e := range err.(validation.Errors) {
+			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+			return
+		}
 	}
 
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
@@ -204,12 +231,23 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	var t TaskRequest
+	var t TaskUpdateRequest
+
 	err := jsonrender.DecodeBody(w, r, &t)
 	if err != nil {
-		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect data"}, w, http.StatusBadRequest)
+		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
 	}
+
+	err = t.Validate()
+
+	if err != nil {
+		for _, e := range err.(validation.Errors) {
+			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+			return
+		}
+	}
+
 	id, err := strconv.Atoi(r.PathValue("task_id"))
 	if err != nil {
 		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect task id"}, w, http.StatusBadRequest)

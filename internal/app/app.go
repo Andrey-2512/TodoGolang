@@ -27,7 +27,6 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
-
 	client, err := postgres.NewClient(cfg.Database.ConnTimeout, fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
 		cfg.Database.Username,
 		cfg.Database.Password,

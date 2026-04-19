@@ -19,7 +19,7 @@ type usersService struct {
 
 type UsersService interface {
 	Register(ctx context.Context, user *entity.User) (*entity.User, error)
-	Login(ctx context.Context, userEntity *entity.User) (string, string, error)
+	Login(ctx context.Context, user *entity.User) (string, string, error)
 	Refresh(ctx context.Context, refreshToken string) (string, string, error)
 	RevokeToken(ctx context.Context, token string) error
 }
@@ -47,12 +47,12 @@ func (u *usersService) Register(ctx context.Context, user *entity.User) (*entity
 	return u.usersRepo.Create(ctx, &entity.User{Username: user.Username, Password: hashPassword})
 }
 
-func (u *usersService) Login(ctx context.Context, userEntity *entity.User) (string, string, error) {
-	user, err := u.usersRepo.GetByUsername(ctx, userEntity.Username)
+func (u *usersService) Login(ctx context.Context, user *entity.User) (string, string, error) {
+	userDB, err := u.usersRepo.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return "", "", err
 	}
-	accessPassword, err := u.hasher.Verify(user.Password, userEntity.Password)
+	accessPassword, err := u.hasher.Verify(userDB.Password, user.Password)
 	if err != nil {
 		return "", "", err
 	}
@@ -60,11 +60,11 @@ func (u *usersService) Login(ctx context.Context, userEntity *entity.User) (stri
 		return "", "", apperrors.ErrInvalidCredentials
 	}
 
-	accessToken, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: user.Id, Username: user.Username})
+	accessToken, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: userDB.Id, Username: userDB.Username})
 	if err != nil {
 		return "", "", err
 	}
-	refreshToken, err := u.jwt.CreateRefreshToken(&entity.UserPayload{UserID: user.Id, Username: user.Username})
+	refreshToken, err := u.jwt.CreateRefreshToken(&entity.UserPayload{UserID: userDB.Id, Username: userDB.Username})
 	if err != nil {
 		return "", "", err
 	}
