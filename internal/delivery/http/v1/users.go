@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
@@ -27,12 +28,15 @@ type userRequest struct {
 	Password string `json:"password"`
 }
 
+var regexpValidate = regexp.MustCompile(`^[a-zA-Z0-9%!*#@_.,:-]+$`)
+
 func (r *userRequest) Validate() error {
 	return validation.ValidateStruct(r,
 		validation.Field(
 			&r.Username,
 			validation.Required.Error("Field username required"),
 			validation.Length(8, 64).Error("Username must be between 8 and 64 characters long"),
+			validation.Match(regexpValidate).Error("In field username only latin letters, numbers and special chars (%!*#@_.,:-) are allowed"),
 		),
 		validation.Field(&r.Password,
 			validation.Required.Error("Field password required"),
