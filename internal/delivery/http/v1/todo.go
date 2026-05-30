@@ -36,13 +36,20 @@ type TaskUpdateRequest struct {
 
 func (r *TaskCreateRequest) Validate() error {
 	return validation.ValidateStruct(r,
-		validation.Field(&r.Title, validation.Required.Error("Field title required")),
+		validation.Field(&r.Title,
+			validation.Required.Error("Field title required"),
+			validation.RuneLength(0, 250).Error("Field title must not be longer than 250 characters")),
+		validation.Field(&r.Description,
+			validation.RuneLength(0, 2500).Error("Field description must not be longer than 2500 characters")),
 	)
 }
 
 func (r *TaskUpdateRequest) Validate() error {
 	return validation.ValidateStruct(r,
-		validation.Field(&r.Title, validation.When(r.Title != nil, validation.Required.Error("Field title cannot be empty string"))),
+		validation.Field(&r.Title, validation.When(r.Title != nil,
+			validation.Required.Error("Field title cannot be empty string")),
+			validation.RuneLength(0, 250).Error("Field title must not be longer than 250 characters")),
+		validation.Field(&r.Description, validation.RuneLength(0, 2500).Error("Field description must not be longer than 2500 characters")),
 	)
 }
 
@@ -153,10 +160,12 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 	err = t.Validate()
 
 	if err != nil {
-		for _, e := range err.(validation.Errors) {
-			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+		if errorsValidation, ok := errors.AsType[validation.Errors](err); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": errorsValidation}, w, http.StatusUnprocessableEntity)
 			return
 		}
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to process request"}, w, http.StatusInternalServerError)
+		return
 	}
 
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
@@ -180,6 +189,12 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 			jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
 			return
 		}
+
+		if errors.Is(err, apperrors.ErrLimitTasksReached) {
+			jsonrender.JSONResponse(map[string]any{"detail": "Sorry, you reach limit tasks (500), please delete dont need tasks and try again"}, w, http.StatusBadRequest)
+			return
+		}
+
 		jsonrender.JSONResponse(map[string]any{"detail": "Failed to create task"}, w, http.StatusInternalServerError)
 		return
 	}
@@ -242,10 +257,12 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	err = t.Validate()
 
 	if err != nil {
-		for _, e := range err.(validation.Errors) {
-			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+		if errorsValidation, ok := errors.AsType[validation.Errors](err); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": errorsValidation}, w, http.StatusUnprocessableEntity)
 			return
 		}
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to process request"}, w, http.StatusInternalServerError)
+		return
 	}
 
 	id, err := strconv.Atoi(r.PathValue("task_id"))

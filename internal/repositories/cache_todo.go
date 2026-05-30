@@ -131,3 +131,7 @@ func (c *cacheTaskRepository) Delete(ctx context.Context, id, userId int) error 
 	c.redisClient.Del(ctx, taskKey, allTasksKey)
 	return nil
 }
+
+func (c *cacheTaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
+	return c.taskRepo.CountTasksUser(ctx, userId)
+}

@@ -15,4 +15,5 @@ type TaskRepository interface {
 	GetAllUserTasks(ctx context.Context, userId int) ([]Task, error)
 	Update(ctx context.Context, t *Task) (*Task, error)
 	Delete(ctx context.Context, id, userId int) error
+	CountTasksUser(ctx context.Context, userId int) (int, error)
 }

@@ -62,6 +62,7 @@ type RedisConfig struct {
 	ReadTimeout     time.Duration `yaml:"read_timeout" env-default:"1s"`
 	WriteTimeout    time.Duration `yaml:"write_timeout" env-default:"1s"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"1h"`
+	ConnTimeout     time.Duration `yaml:"conn_timeout" env-default:"10s"`
 }
 
 type CacheConfig struct {

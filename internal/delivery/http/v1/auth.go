@@ -3,7 +3,6 @@ package delivery
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"time"
@@ -15,12 +14,12 @@ import (
 	"github.com/go-ozzo/ozzo-validation/v4"
 )
 
-type UsersHandler struct {
-	userService services.UsersService
+type AuthHandler struct {
+	userService services.AuthService
 }
 
-func NewUsersHandler(service services.UsersService) *UsersHandler {
-	return &UsersHandler{userService: service}
+func NewAuthHandler(service services.AuthService) *AuthHandler {
+	return &AuthHandler{userService: service}
 }
 
 type userRequest struct {
@@ -28,24 +27,24 @@ type userRequest struct {
 	Password string `json:"password"`
 }
 
-var regexpValidate = regexp.MustCompile(`^[a-zA-Z0-9%!*#@_.,:-]+$`)
+var regexpValidate = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 func (r *userRequest) Validate() error {
 	return validation.ValidateStruct(r,
 		validation.Field(
 			&r.Username,
-			validation.Required.Error("Field username required"),
-			validation.Length(8, 64).Error("Username must be between 8 and 64 characters long"),
-			validation.Match(regexpValidate).Error("In field username only latin letters, numbers and special chars (%!*#@_.,:-) are allowed"),
+			validation.Required.Error("Field username is required"),
+			validation.RuneLength(8, 64).Error("Username must be between 8 and 64 characters long"),
+			validation.Match(regexpValidate).Error("In field username only Latin letters, numbers, underscores are allowed"),
 		),
 		validation.Field(&r.Password,
-			validation.Required.Error("Field password required"),
-			validation.Length(8, 64).Error("Password must be between 8 and 64 characters long"),
+			validation.Required.Error("Field password is required"),
+			validation.RuneLength(8, 64).Error("Password must be between 8 and 64 characters long"),
 		),
 	)
 }
 
-func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	var userData userRequest
@@ -59,10 +58,13 @@ func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
 	err = userData.Validate()
 
 	if err != nil {
-		for _, e := range err.(validation.Errors) {
-			jsonrender.JSONResponse(map[string]any{"detail": e.Error()}, w, http.StatusBadRequest)
+		if errorsValidation, ok := errors.AsType[validation.Errors](err); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": errorsValidation}, w, http.StatusUnprocessableEntity)
 			return
 		}
+		jsonrender.JSONResponse(map[string]any{"detail": "Failed to process request"}, w, http.StatusInternalServerError)
+		return
+
 	}
 
 	user, err := u.userService.Register(ctx, &entity.User{Username: userData.Username, Password: userData.Password})
@@ -83,10 +85,10 @@ func (u *UsersHandler) Register(w http.ResponseWriter, r *http.Request) {
 		jsonrender.JSONResponse(map[string]any{"detail": "Failed to register"}, w, http.StatusInternalServerError)
 		return
 	}
-	jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("User created %s", user.Username)}, w, http.StatusCreated)
+	jsonrender.JSONResponse(map[string]any{"detail": user.Username}, w, http.StatusCreated)
 }
 
-func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -109,7 +111,7 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if errors.Is(err, apperrors.ErrUserNotFound) || errors.Is(err, apperrors.ErrInvalidCredentials) {
+		if errors.Is(err, apperrors.ErrUserNotFound) || errors.Is(err, apperrors.ErrInvalidAuthCredentials) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Failed to login incorrect username or password"}, w, http.StatusUnauthorized)
 			return
 		}
@@ -123,7 +125,7 @@ func (u *UsersHandler) Login(w http.ResponseWriter, r *http.Request) {
 	jsonrender.JSONResponse(map[string]any{"access_token": accessToken}, w, http.StatusOK)
 }
 
-func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -169,7 +171,7 @@ func (u *UsersHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (u *UsersHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	refreshTokenCookie, err := r.Cookie("refresh_token")

@@ -49,7 +49,11 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to setup migrations: %w", err)
 	}
 
-	redisClient := redis.NewRedisClient(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
+	redisClient, err := redis.NewRedisClient(cfg.Redis.ConnTimeout, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup redis: %w", err)
+	}
 
 	jwt := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 	hasher := auth.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
@@ -57,13 +61,13 @@ func New(cfg *config.Config) (*App, error) {
 	taskRepo := repositories.NewTaskRepository(client)
 	cacheTaskRepo := repositories.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)
 	usersRepo := repositories.NewUsersRepository(client)
-	blacklistRepo := repositories.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
+	whitelistRepo := repositories.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
 
 	taskService := services.NewTaskService(cacheTaskRepo)
-	usersService := services.NewUsersService(usersRepo, hasher, jwt, blacklistRepo)
+	usersService := services.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
 
 	taskHandler := delivery.NewTaskHandler(taskService)
-	usersHandler := delivery.NewUsersHandler(usersService)
+	usersHandler := delivery.NewAuthHandler(usersService)
 
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl)

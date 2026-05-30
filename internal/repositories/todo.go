@@ -139,3 +139,13 @@ func (r *taskRepository) Delete(ctx context.Context, id, userId int) error {
 
 	return nil
 }
+
+func (r *taskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
+	var count int
+	query := "SELECT COUNT(id) FROM tasks WHERE user_id = $1"
+	err := r.db.QueryRow(ctx, query, userId).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get count tasks: %w", err)
+	}
+	return count, nil
+}

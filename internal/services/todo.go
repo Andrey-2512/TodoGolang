@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"todo/domain/apperrors"
 	"todo/domain/entity"
 )
 
@@ -22,6 +24,13 @@ type TaskService interface {
 }
 
 func (t *taskService) CreateTask(ctx context.Context, task *entity.Task) (*entity.Task, error) {
+	countTasks, err := t.repo.CountTasksUser(ctx, task.UserId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check count tasks: %w", err)
+	}
+	if countTasks >= 500 {
+		return nil, apperrors.ErrLimitTasksReached
+	}
 	return t.repo.Create(ctx, task)
 }
 

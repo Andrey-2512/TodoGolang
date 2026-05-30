@@ -10,25 +10,25 @@ import (
 	"todo/internal/auth"
 )
 
-type usersService struct {
+type authService struct {
 	usersRepo entity.UsersRepository
 	hasher    auth.Hasher
 	jwt       auth.JWTManager
 	whitelist entity.WhitelistRepository
 }
 
-type UsersService interface {
+type AuthService interface {
 	Register(ctx context.Context, user *entity.User) (*entity.User, error)
 	Login(ctx context.Context, user *entity.User) (string, string, error)
 	Refresh(ctx context.Context, refreshToken string) (string, string, error)
 	RevokeToken(ctx context.Context, token string) error
 }
 
-func NewUsersService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt auth.JWTManager, whitelist entity.WhitelistRepository) UsersService {
-	return &usersService{usersRepo: usersRepo, hasher: hasher, jwt: jwt, whitelist: whitelist}
+func NewAuthService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt auth.JWTManager, whitelist entity.WhitelistRepository) AuthService {
+	return &authService{usersRepo: usersRepo, hasher: hasher, jwt: jwt, whitelist: whitelist}
 }
 
-func (u *usersService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
+func (u *authService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
 	exists, err := u.usersRepo.Exists(ctx, user.Username)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (u *usersService) Register(ctx context.Context, user *entity.User) (*entity
 	return u.usersRepo.Create(ctx, &entity.User{Username: user.Username, Password: hashPassword})
 }
 
-func (u *usersService) Login(ctx context.Context, user *entity.User) (string, string, error) {
+func (u *authService) Login(ctx context.Context, user *entity.User) (string, string, error) {
 	userDB, err := u.usersRepo.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return "", "", err
@@ -57,7 +57,7 @@ func (u *usersService) Login(ctx context.Context, user *entity.User) (string, st
 		return "", "", err
 	}
 	if !accessPassword {
-		return "", "", apperrors.ErrInvalidCredentials
+		return "", "", apperrors.ErrInvalidAuthCredentials
 	}
 
 	accessToken, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: userDB.Id, Username: userDB.Username})
@@ -81,7 +81,7 @@ func (u *usersService) Login(ctx context.Context, user *entity.User) (string, st
 	return accessToken, refreshToken, nil
 }
 
-func (u *usersService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
+func (u *authService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
 	claims, err := u.jwt.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return "", "", err
@@ -125,7 +125,7 @@ func (u *usersService) Refresh(ctx context.Context, refreshToken string) (string
 
 }
 
-func (u *usersService) RevokeToken(ctx context.Context, token string) error {
+func (u *authService) RevokeToken(ctx context.Context, token string) error {
 	claims, err := u.jwt.ParseRefreshToken(token)
 	if err != nil {
 		return err

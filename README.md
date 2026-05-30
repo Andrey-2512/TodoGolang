@@ -136,7 +136,7 @@ database:
   max_idle_conns: 100
   max_open_conns: 100
   max_conn_lifetime: "1h"
-  conn_timeout: "30s"
+  conn_timeout: "10s"
 
 redis:
   addr: "localhost:6379"
@@ -146,13 +146,12 @@ redis:
   read_timeout: "500ms"
   write_timeout: "500ms"
   conn_max_lifetime: "1h"
+  conn_timeout: "10s"
 
 cache:
   cache_task_ttl: "30m"
   tasks_cache_prefix: "tasks:"
   user_tasks_cache_prefix: "user:"
-
-
 ```
 
 **.env**
