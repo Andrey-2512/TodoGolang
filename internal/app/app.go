@@ -63,7 +63,7 @@ func New(cfg *config.Config) (*App, error) {
 	usersRepo := repositories.NewUsersRepository(client)
 	whitelistRepo := repositories.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
 
-	taskService := services.NewTaskService(cacheTaskRepo)
+	taskService := services.NewTaskService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
 	usersService := services.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
 
 	taskHandler := delivery.NewTaskHandler(taskService)

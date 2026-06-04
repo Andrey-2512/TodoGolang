@@ -119,7 +119,7 @@ hash:
 http:
   addr: "0.0.0.0:8000"
   cors_url:
-  - "*"
+    - "*"
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
@@ -152,6 +152,9 @@ cache:
   cache_task_ttl: "30m"
   tasks_cache_prefix: "tasks:"
   user_tasks_cache_prefix: "user:"
+
+app:
+  max_tasks_per_user: 500
 ```
 
 **.env**
@@ -161,6 +164,7 @@ CONFIG_PATH="./config.yaml" # Path to your config.yaml
 DB_USERNAME="YOUR-DB-USERNAME"
 DB_PASSWORD="YOUR-DB-PASSWORD"
 REDIS_PASSWORD="YOUR-REDIS-PASSWORD"
+REDIS_USERNAME="YOUR-REDIS-USERNAME"
 ```
 
 ## 3. Run 🏃‍♂️

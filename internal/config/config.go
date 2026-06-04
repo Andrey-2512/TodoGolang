@@ -16,6 +16,7 @@ type Config struct {
 	HTTP     HTTPServer     `yaml:"http"`
 	Redis    RedisConfig    `yaml:"redis"`
 	Cache    CacheConfig    `yaml:"cache"`
+	App      AppConfig      `yaml:"app"`
 }
 
 type JWTConfig struct {
@@ -56,6 +57,7 @@ type DatabaseConfig struct {
 type RedisConfig struct {
 	Addr            string        `yaml:"addr" env-default:"localhost:6379"`
 	Password        string        `env:"REDIS_PASSWORD" env-required:"true"`
+	Username        string        `env:"REDIS_USERNAME" env-required:"true"`
 	DB              int           `yaml:"db" env-default:"0"`
 	MinIdleConns    int           `yaml:"min_idle_conns" env-default:"100"`
 	PoolSize        int           `yaml:"pool_size" env-default:"100"`
@@ -69,6 +71,10 @@ type CacheConfig struct {
 	CacheTaskTTL    time.Duration `yaml:"cache_task_ttl" env-default:"1h"`
 	TasksPrefix     string        `yaml:"tasks_cache_prefix" env-default:"tasks:"`
 	UserTasksPrefix string        `yaml:"user_tasks_cache_prefix" env-default:"user:"`
+}
+
+type AppConfig struct {
+	MaxTasksPerUser int `yaml:"max_tasks_per_user" env-default:"100"`
 }
 
 func LoadConfig() (*Config, error) {

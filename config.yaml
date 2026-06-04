@@ -42,4 +42,5 @@ cache:
   tasks_cache_prefix: "tasks:"
   user_tasks_cache_prefix: "user:"
 
-
+app:
+  max_tasks_per_user: 500

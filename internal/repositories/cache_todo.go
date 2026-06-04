@@ -36,7 +36,7 @@ func NewCacheTaskRepository(taskRepo entity.TaskRepository, redisClient *redis.C
 func (c *cacheTaskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Task, error) {
 	createdTask, err := c.taskRepo.Create(ctx, t)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed create task in pg: %w", err)
 	}
 
 	allTasksKey := c.userTasksKey(createdTask.UserId)
@@ -62,7 +62,7 @@ func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId in
 	v, err, _ := c.sft.Do(key, func() (any, error) {
 		task, err := c.taskRepo.GetUserTaskById(ctx, id, userId)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed get task in pg: %w", err)
 		}
 		data, err := json.Marshal(task)
 		if err == nil {
@@ -71,7 +71,7 @@ func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId in
 		return task, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed get task: %w", err)
 	}
 	return v.(*entity.Task), nil
 }
@@ -91,7 +91,7 @@ func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 	v, err, _ := c.sft.Do(key, func() (any, error) {
 		tasks, err := c.taskRepo.GetAllUserTasks(ctx, userId)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed get all tasks in pg: %w", err)
 		}
 
 		data, err := json.Marshal(tasks)
@@ -102,7 +102,7 @@ func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 		return tasks, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed get all tasks: %w", err)
 	}
 	return v.([]entity.Task), nil
 
@@ -111,7 +111,7 @@ func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 func (c *cacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
 	updatedTask, err := c.taskRepo.Update(ctx, t)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed update task in pg: %w", err)
 	}
 	taskKey := c.taskKey(updatedTask.Id, updatedTask.UserId)
 	allTasksKey := c.userTasksKey(updatedTask.UserId)
@@ -123,7 +123,7 @@ func (c *cacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*enti
 func (c *cacheTaskRepository) Delete(ctx context.Context, id, userId int) error {
 	err := c.taskRepo.Delete(ctx, id, userId)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed delete task in pg: %w", err)
 	}
 	taskKey := c.taskKey(id, userId)
 	allTasksKey := c.userTasksKey(userId)
@@ -133,5 +133,9 @@ func (c *cacheTaskRepository) Delete(ctx context.Context, id, userId int) error 
 }
 
 func (c *cacheTaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
-	return c.taskRepo.CountTasksUser(ctx, userId)
+	count, err := c.taskRepo.CountTasksUser(ctx, userId)
+	if err != nil {
+		return 0, fmt.Errorf("failed get count tasks in pg: %w", err)
+	}
+	return count, nil
 }
