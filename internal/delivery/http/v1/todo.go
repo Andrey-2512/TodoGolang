@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -177,6 +178,13 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	task, err := h.taskService.CreateTask(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
 	if err != nil {
+		var limitErr *apperrors.ErrLimitTasksReached
+		if ok := errors.As(err, &limitErr); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Sorry, you reach limit tasks (%d), please delete dont need tasks and try again", limitErr.TasksLimit)}, w, http.StatusBadRequest)
+			return
+
+		}
+
 		if errors.Is(err, context.DeadlineExceeded) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Request too long"}, w, http.StatusGatewayTimeout)
 			return
@@ -187,11 +195,6 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 		if errors.Is(err, apperrors.ErrUserNotFound) {
 			jsonrender.JSONResponse(map[string]any{"detail": "Unauthorized"}, w, http.StatusUnauthorized)
-			return
-		}
-
-		if errors.Is(err, apperrors.ErrLimitTasksReached) {
-			jsonrender.JSONResponse(map[string]any{"detail": "Sorry, you reach limit tasks (500), please delete dont need tasks and try again"}, w, http.StatusBadRequest)
 			return
 		}
 

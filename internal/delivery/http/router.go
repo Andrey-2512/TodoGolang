@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS) *chi.Mux {
+func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS, profileHandler *delivery.ProfileHandler) *chi.Mux {
 	mainRouter := chi.NewRouter()
 
 	mainRouter.Use(middleware.StripSlashes)
@@ -33,6 +33,11 @@ func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.AuthHan
 	mainRouter.Post("/login", usersHandler.Login)
 	mainRouter.Post("/refresh", usersHandler.Refresh)
 	mainRouter.Post("/logout", usersHandler.Logout)
+
+	mainRouter.Route("/me", func(r chi.Router) {
+		r.Use(authMiddleware.AuthMiddleware)
+		r.Get("/", profileHandler.GetProfile)
+	})
 
 	mainRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		jsonrender.JSONResponse(map[string]any{"detail": "Привет! Это TODO API"}, w, 200)

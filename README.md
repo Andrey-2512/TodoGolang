@@ -71,6 +71,12 @@ Authorization Required
 ```
 
 ```http request
+GET /me/ Return Current Session, Current Count Tasks And Max. Count Tasks Limit
+
+Authorization Required
+```
+
+```http request
 POST /register/ Return Registered User Username
 Arguments:
 {

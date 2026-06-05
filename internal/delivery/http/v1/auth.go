@@ -217,3 +217,7 @@ func (u *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 
 }
+
+func MeHandler(w http.ResponseWriter, r *http.Request) {
+
+}

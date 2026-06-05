@@ -44,6 +44,7 @@ func (m *Auth) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := contextutil.SetUserIdInContext(r.Context(), claims.UserId)
+		ctx = contextutil.SetUsernameInContext(ctx, claims.Username)
 		next.ServeHTTP(w, r.WithContext(ctx))
 
 	})

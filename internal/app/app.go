@@ -65,14 +65,16 @@ func New(cfg *config.Config) (*App, error) {
 
 	taskService := services.NewTaskService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
 	usersService := services.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
+	profileService := services.NewProfileService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
 
 	taskHandler := delivery.NewTaskHandler(taskService)
 	usersHandler := delivery.NewAuthHandler(usersService)
+	profileHandler := delivery.NewProfileHandler(profileService)
 
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl)
 
-	mux := router.NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware)
+	mux := router.NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware, profileHandler)
 
 	return &App{
 		server: &http.Server{

@@ -30,7 +30,7 @@ func (t *taskService) CreateTask(ctx context.Context, task *entity.Task) (*entit
 		return nil, fmt.Errorf("failed to check count tasks: %w", err)
 	}
 	if countTasks >= t.maxTasks {
-		return nil, apperrors.ErrLimitTasksReached
+		return nil, &apperrors.ErrLimitTasksReached{TasksLimit: t.maxTasks}
 	}
 	createdTask, err := t.repo.Create(ctx, task)
 	if err != nil {
