@@ -1,32 +1,31 @@
-package repositories
+package auth
 
 import (
 	"context"
 	"fmt"
 	"time"
 	"todo/domain/apperrors"
-	"todo/domain/entity"
 
 	"github.com/redis/go-redis/v9"
 )
 
-func NewWhitelistRepository(client *redis.Client, whitelistPrefix string) entity.WhitelistRepository {
-	return &whitelistRepo{redisClient: client, prefix: whitelistPrefix}
+func NewWhitelistRepository(client *redis.Client, whitelistPrefix string) *WhitelistRepository {
+	return &WhitelistRepository{redisClient: client, prefix: whitelistPrefix}
 }
 
-type whitelistRepo struct {
+type WhitelistRepository struct {
 	redisClient *redis.Client
 	prefix      string
 }
 
-func (w *whitelistRepo) Del(ctx context.Context, jti string) error {
+func (w *WhitelistRepository) Del(ctx context.Context, jti string) error {
 	err := w.redisClient.Del(ctx, w.prefix+jti).Err()
 	if err != nil {
 		return fmt.Errorf("failed to del in whitelist: %w", err)
 	}
 	return nil
 }
-func (w *whitelistRepo) ConsumeAndAddToken(ctx context.Context, jti, newJti string, exp time.Duration) error {
+func (w *WhitelistRepository) ConsumeAndAddToken(ctx context.Context, jti, newJti string, exp time.Duration) error {
 	script := redis.NewScript(
 		`local exists = redis.call("EXISTS", KEYS[1])
 			if exists == 1 then
@@ -49,7 +48,7 @@ func (w *whitelistRepo) ConsumeAndAddToken(ctx context.Context, jti, newJti stri
 	return nil
 }
 
-func (w *whitelistRepo) Add(ctx context.Context, jti string, exp time.Duration) error {
+func (w *WhitelistRepository) Add(ctx context.Context, jti string, exp time.Duration) error {
 	err := w.redisClient.Set(ctx, w.prefix+jti, "true", exp).Err()
 	if err != nil {
 		return fmt.Errorf("failed to add to whitelist: %w", err)

@@ -1,4 +1,4 @@
-package services
+package auth
 
 import (
 	"context"
@@ -7,28 +7,45 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/auth"
+	"todo/pkg/security"
 )
 
-type authService struct {
-	usersRepo entity.UsersRepository
-	hasher    auth.Hasher
-	jwt       auth.JWTManager
-	whitelist entity.WhitelistRepository
+type AuthService struct {
+	usersRepo usersRepository
+	hasher    hasher
+	jwt       jwtManager
+	whitelist whitelistRepository
 }
 
-type AuthService interface {
-	Register(ctx context.Context, user *entity.User) (*entity.User, error)
-	Login(ctx context.Context, user *entity.User) (string, string, error)
-	Refresh(ctx context.Context, refreshToken string) (string, string, error)
-	RevokeToken(ctx context.Context, token string) error
+type jwtManager interface {
+	CreateAccessToken(user *entity.UserPayload) (string, error)
+	ParseAccessToken(jwtToken string) (*security.UserClaims, error)
+	CreateRefreshToken(user *entity.UserPayload) (string, error)
+	ParseRefreshToken(jwtToken string) (*security.UserClaims, error)
+}
+type usersRepository interface {
+	GetById(ctx context.Context, id int) (*entity.User, error)
+	GetByUsername(ctx context.Context, username string) (*entity.User, error)
+	Create(ctx context.Context, user *entity.User) (*entity.User, error)
+	Exists(ctx context.Context, username string) (bool, error)
 }
 
-func NewAuthService(usersRepo entity.UsersRepository, hasher auth.Hasher, jwt auth.JWTManager, whitelist entity.WhitelistRepository) AuthService {
-	return &authService{usersRepo: usersRepo, hasher: hasher, jwt: jwt, whitelist: whitelist}
+type whitelistRepository interface {
+	ConsumeAndAddToken(ctx context.Context, jti, newJti string, exp time.Duration) error
+	Del(ctx context.Context, jti string) error
+	Add(ctx context.Context, jti string, exp time.Duration) error
 }
 
-func (u *authService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
+type hasher interface {
+	Hash(password string) (string, error)
+	Verify(hashPassword string, password string) (bool, error)
+}
+
+func NewAuthService(usersRepo usersRepository, hasher hasher, jwt jwtManager, whitelist whitelistRepository) *AuthService {
+	return &AuthService{usersRepo: usersRepo, hasher: hasher, jwt: jwt, whitelist: whitelist}
+}
+
+func (u *AuthService) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
 	exists, err := u.usersRepo.Exists(ctx, user.Username)
 	if err != nil {
 		return nil, fmt.Errorf("failed check exists user: %w", err)
@@ -47,7 +64,7 @@ func (u *authService) Register(ctx context.Context, user *entity.User) (*entity.
 	return u.usersRepo.Create(ctx, &entity.User{Username: user.Username, Password: hashPassword})
 }
 
-func (u *authService) Login(ctx context.Context, user *entity.User) (string, string, error) {
+func (u *AuthService) Login(ctx context.Context, user *entity.User) (string, string, error) {
 	userDB, err := u.usersRepo.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("failed get user by username: %w", err)
@@ -81,7 +98,7 @@ func (u *authService) Login(ctx context.Context, user *entity.User) (string, str
 	return accessToken, refreshToken, nil
 }
 
-func (u *authService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
+func (u *AuthService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
 	claims, err := u.jwt.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("failed parse refresh token: %w", err)
@@ -125,7 +142,7 @@ func (u *authService) Refresh(ctx context.Context, refreshToken string) (string,
 
 }
 
-func (u *authService) RevokeToken(ctx context.Context, token string) error {
+func (u *AuthService) RevokeToken(ctx context.Context, token string) error {
 	claims, err := u.jwt.ParseRefreshToken(token)
 	if err != nil {
 		return fmt.Errorf("failed parse refresh token: %w", err)

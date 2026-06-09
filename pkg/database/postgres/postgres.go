@@ -8,17 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewClient(connTimeout time.Duration, DBPath string, maxConns int32, idleConns int32, MaxConnLifetime time.Duration) (*pgxpool.Pool, error) {
+func NewClient(connTimeout time.Duration, DBPath string, maxConns int32, idleConns int32, maxConnLifetime time.Duration) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connTimeout)
 	defer cancel()
+
 	config, err := pgxpool.ParseConfig(DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config db: %w", err)
 	}
+
 	config.MaxConns = maxConns
 	config.MinConns = idleConns
-
-	config.MaxConnLifetime = MaxConnLifetime
+	config.MaxConnLifetime = maxConnLifetime
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

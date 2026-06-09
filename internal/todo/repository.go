@@ -1,4 +1,4 @@
-package repositories
+package todo
 
 import (
 	"context"
@@ -8,40 +8,67 @@ import (
 	"todo/domain/apperrors"
 	"todo/domain/entity"
 
-	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type taskRepository struct {
-	db *pgxpool.Pool
+type TaskRepository struct {
+	db         *pgxpool.Pool
+	limitTasks int
 }
 
-func NewTaskRepository(db *pgxpool.Pool) entity.TaskRepository {
+func NewTaskRepository(db *pgxpool.Pool, limitTasks int) *TaskRepository {
 
-	return &taskRepository{db: db}
+	return &TaskRepository{db: db, limitTasks: limitTasks}
 }
 
-func (r *taskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+func (r *TaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+
+	tx, err := r.db.Begin(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed start transaction: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	var lockedUserId int
+	err = tx.QueryRow(ctx, "SELECT id FROM users WHERE id = $1 FOR UPDATE", t.UserId).Scan(&lockedUserId)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed block user: %w", err)
+	}
+
+	var count int
+	err = tx.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = $1", t.UserId).Scan(&count)
+	if err != nil {
+		return nil, fmt.Errorf("failed get count tasks: %w", err)
+	}
+
+	if count >= r.limitTasks {
+		return nil, &apperrors.ErrLimitTasksReached{TasksLimit: r.limitTasks}
+	}
 
 	task := &entity.Task{}
 	query := "INSERT INTO tasks (title, description, user_id) VALUES ($1, $2, $3) RETURNING id, title, description, user_id"
 
-	err := r.db.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
+	err = tx.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
 
 	if err != nil {
-		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-			if pgErr.Code == pgerrcode.ForeignKeyViolation {
-				return nil, apperrors.ErrUserNotFound
-			}
-		}
-		return nil, fmt.Errorf("failed to create task: %w", err)
+		return nil, fmt.Errorf("failed create task: %w", err)
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed commit transaction: %w", err)
+	}
+
 	return task, nil
 }
 
-func (r *taskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
+func (r *TaskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
 	var t entity.Task
 	query := "SELECT id, title, description FROM tasks WHERE id = $1 AND user_id = $2"
 	err := r.db.QueryRow(ctx, query, id, userId).Scan(&t.Id, &t.Title, &t.Description)
@@ -55,7 +82,7 @@ func (r *taskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*
 
 }
 
-func (r *taskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
+func (r *TaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
 	var listTask = make([]entity.Task, 0)
 
 	query := "SELECT id, title, description FROM tasks WHERE user_id = $1 ORDER BY id DESC"
@@ -84,7 +111,7 @@ func (r *taskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]ent
 	return listTask, nil
 }
 
-func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+func (r *TaskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
 	var queryParts []string
 	var args []any
 	ArgID := 1
@@ -97,7 +124,7 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 
 	if t.Title != nil {
 		queryParts = append(queryParts, fmt.Sprintf("title = $%d", ArgID))
-		args = append(args, t.Title)
+		args = append(args, *t.Title)
 		ArgID++
 	}
 
@@ -125,7 +152,7 @@ func (r *taskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Ta
 	return &task, nil
 
 }
-func (r *taskRepository) Delete(ctx context.Context, id, userId int) error {
+func (r *TaskRepository) Delete(ctx context.Context, id, userId int) error {
 	result, err := r.db.Exec(ctx, "DELETE FROM tasks WHERE id = $1 AND user_id = $2", id, userId)
 	if err != nil {
 
@@ -140,7 +167,7 @@ func (r *taskRepository) Delete(ctx context.Context, id, userId int) error {
 	return nil
 }
 
-func (r *taskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
+func (r *TaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
 	var count int
 	query := "SELECT COUNT(id) FROM tasks WHERE user_id = $1"
 	err := r.db.QueryRow(ctx, query, userId).Scan(&count)

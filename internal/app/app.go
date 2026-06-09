@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"todo/internal/auth"
 	"todo/internal/config"
-	router "todo/internal/delivery/http"
-	"todo/internal/delivery/http/middlewares"
-	delivery "todo/internal/delivery/http/v1"
-	"todo/internal/repositories"
-	"todo/internal/services"
+	"todo/internal/middlewares"
+	"todo/internal/todo"
+	"todo/internal/users"
 	"todo/pkg/database/postgres"
 	"todo/pkg/database/redis"
+	security2 "todo/pkg/security"
 
 	redisLib "github.com/redis/go-redis/v9"
 
@@ -55,26 +54,26 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to setup redis: %w", err)
 	}
 
-	jwt := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
-	hasher := auth.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
+	jwt := security2.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+	hasher := security2.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
 
-	taskRepo := repositories.NewTaskRepository(client)
-	cacheTaskRepo := repositories.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)
-	usersRepo := repositories.NewUsersRepository(client)
-	whitelistRepo := repositories.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
+	taskRepo := todo.NewTaskRepository(client, cfg.App.MaxTasksPerUser)
+	cacheTaskRepo := todo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)
+	usersRepo := users.NewUsersRepository(client)
+	whitelistRepo := auth.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
 
-	taskService := services.NewTaskService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
-	usersService := services.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
-	profileService := services.NewProfileService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
+	taskService := todo.NewTaskService(cacheTaskRepo)
+	usersService := auth.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
+	profileService := users.NewProfileService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
 
-	taskHandler := delivery.NewTaskHandler(taskService)
-	usersHandler := delivery.NewAuthHandler(usersService)
-	profileHandler := delivery.NewProfileHandler(profileService)
+	taskHandler := todo.NewTaskHandler(taskService, cfg.HTTP.HandlerTimeout)
+	usersHandler := auth.NewAuthHandler(usersService, cfg.HTTP.HandlerTimeout, cfg.HTTP.CookieSecure, cfg.JWT.RefreshTTL)
+	profileHandler := users.NewProfileHandler(profileService, cfg.HTTP.HandlerTimeout)
 
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl)
 
-	mux := router.NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware, profileHandler)
+	mux := NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware, profileHandler)
 
 	return &App{
 		server: &http.Server{

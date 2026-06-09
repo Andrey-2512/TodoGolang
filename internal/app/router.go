@@ -1,16 +1,18 @@
-package router
+package app
 
 import (
 	"net/http"
-	"todo/internal/delivery/http/json/render"
-	"todo/internal/delivery/http/middlewares"
-	"todo/internal/delivery/http/v1"
+	"todo/internal/auth"
+	"todo/internal/middlewares"
+	"todo/internal/todo"
+	"todo/internal/users"
+	"todo/pkg/jsonrender"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(taskHandler *delivery.TaskHandler, usersHandler *delivery.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS, profileHandler *delivery.ProfileHandler) *chi.Mux {
+func NewRouter(taskHandler *todo.TaskHandler, usersHandler *auth.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS, profileHandler *users.ProfileHandler) *chi.Mux {
 	mainRouter := chi.NewRouter()
 
 	mainRouter.Use(middleware.StripSlashes)

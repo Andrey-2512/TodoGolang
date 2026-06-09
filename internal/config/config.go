@@ -23,7 +23,7 @@ type JWTConfig struct {
 	SecretKey       string        `env:"JWT_SECRET_KEY" env-required:"true"`
 	AccessTTL       time.Duration `yaml:"access_ttl" env-default:"30m"`
 	RefreshTTL      time.Duration `yaml:"refresh_ttl" env-default:"7d"`
-	WhitelistPrefix string        `yaml:"whitelist_prefix" env-default:"bl:"`
+	WhitelistPrefix string        `yaml:"whitelist_prefix" env-default:"wl:"`
 }
 
 type HashConfig struct {
@@ -35,11 +35,13 @@ type HashConfig struct {
 }
 
 type HTTPServer struct {
-	Addr         string        `yaml:"addr" env-default:":8080"`
-	CORSUrl      []string      `yaml:"cors_url" env-default:"http://localhost:8080"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout" env-default:"60s"`
-	ReadTimeout  time.Duration `yaml:"read_timeout" env-default:"15s"`
-	WriteTimeout time.Duration `yaml:"write_timeout" env-default:"10s"`
+	Addr           string        `yaml:"addr" env-default:":8080"`
+	CORSUrl        []string      `yaml:"cors_url" env-default:"http://localhost:8080"`
+	IdleTimeout    time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	ReadTimeout    time.Duration `yaml:"read_timeout" env-default:"15s"`
+	WriteTimeout   time.Duration `yaml:"write_timeout" env-default:"10s"`
+	HandlerTimeout time.Duration `yaml:"handler_timeout" env-default:"5s"`
+	CookieSecure   bool          `yaml:"cookie_secure" env-default:"true"`
 }
 
 type DatabaseConfig struct {

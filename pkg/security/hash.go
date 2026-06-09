@@ -1,4 +1,4 @@
-package auth
+package security
 
 import (
 	"crypto/rand"
@@ -10,12 +10,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-type Hasher interface {
-	Hash(password string) (string, error)
-	Verify(hashPassword string, password string) (bool, error)
-}
-
-type hasher struct {
+type Hasher struct {
 	saltLength uint8
 	time       uint32
 	memory     uint32
@@ -23,8 +18,8 @@ type hasher struct {
 	threads    uint8
 }
 
-func NewHasher(time, memory, KeyLen uint32, threads, saltLength uint8) Hasher {
-	return &hasher{
+func NewHasher(time, memory, KeyLen uint32, threads, saltLength uint8) *Hasher {
+	return &Hasher{
 		time:       time,
 		memory:     memory,
 		threads:    threads,
@@ -33,7 +28,7 @@ func NewHasher(time, memory, KeyLen uint32, threads, saltLength uint8) Hasher {
 	}
 }
 
-func (h *hasher) Hash(password string) (string, error) {
+func (h *Hasher) Hash(password string) (string, error) {
 	salt := make([]byte, h.saltLength)
 
 	if _, err := rand.Read(salt); err != nil {
@@ -50,7 +45,7 @@ func (h *hasher) Hash(password string) (string, error) {
 	return encodedHash, nil
 }
 
-func (h *hasher) Verify(hashPassword string, password string) (bool, error) {
+func (h *Hasher) Verify(hashPassword string, password string) (bool, error) {
 	var m, t uint32
 	var p uint8
 	var version int

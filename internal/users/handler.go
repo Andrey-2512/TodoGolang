@@ -1,16 +1,21 @@
-package delivery
+package users
 
 import (
 	"context"
 	"net/http"
 	"time"
-	"todo/domain/contextutil"
-	jsonrender "todo/internal/delivery/http/json/render"
-	"todo/internal/services"
+	"todo/domain/entity"
+	"todo/pkg/contextutil"
+	"todo/pkg/jsonrender"
 )
 
+type profileService interface {
+	GetProfile(ctx context.Context, userId int, username string) (*entity.UserProfile, error)
+}
+
 type ProfileHandler struct {
-	profileService services.ProfileService
+	profileService profileService
+	handlerTimeout time.Duration
 }
 
 type Profile struct {
@@ -19,12 +24,12 @@ type Profile struct {
 	TasksLimit   int    `json:"tasks_limit"`
 }
 
-func NewProfileHandler(profileService services.ProfileService) *ProfileHandler {
-	return &ProfileHandler{profileService: profileService}
+func NewProfileHandler(profileService profileService, handlerTimeout time.Duration) *ProfileHandler {
+	return &ProfileHandler{profileService: profileService, handlerTimeout: handlerTimeout}
 }
 
 func (p *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), p.handlerTimeout)
 	defer cancel()
 	userId, ok := contextutil.GetUserIdFromContext(ctx)
 

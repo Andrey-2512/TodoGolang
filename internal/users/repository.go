@@ -1,4 +1,4 @@
-package repositories
+package users
 
 import (
 	"context"
@@ -13,15 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type usersRepository struct {
+type UsersRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewUsersRepository(db *pgxpool.Pool) entity.UsersRepository {
-	return &usersRepository{db: db}
+func NewUsersRepository(db *pgxpool.Pool) *UsersRepository {
+	return &UsersRepository{db: db}
 }
 
-func (u *usersRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
+func (u *UsersRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := "INSERT INTO users (username, hash_password) VALUES ($1, $2) RETURNING id"
 
 	var id int
@@ -45,7 +45,7 @@ func (u *usersRepository) Create(ctx context.Context, user *entity.User) (*entit
 
 }
 
-func (u *usersRepository) GetById(ctx context.Context, id int) (*entity.User, error) {
+func (u *UsersRepository) GetById(ctx context.Context, id int) (*entity.User, error) {
 	var user entity.User
 	query := "SELECT id, username, hash_password FROM users WHERE id = $1"
 
@@ -62,7 +62,7 @@ func (u *usersRepository) GetById(ctx context.Context, id int) (*entity.User, er
 
 }
 
-func (u *usersRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
+func (u *UsersRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
 	var user entity.User
 	query := "SELECT id, username, hash_password FROM users WHERE username = $1"
 
@@ -79,7 +79,7 @@ func (u *usersRepository) GetByUsername(ctx context.Context, username string) (*
 
 }
 
-func (u *usersRepository) Exists(ctx context.Context, username string) (bool, error) {
+func (u *UsersRepository) Exists(ctx context.Context, username string) (bool, error) {
 	query := "SELECT EXISTS(SELECT FROM users WHERE username = $1)"
 	var exists bool
 	err := u.db.QueryRow(ctx, query, username).Scan(&exists)

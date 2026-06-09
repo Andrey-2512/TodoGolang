@@ -1,4 +1,4 @@
-package delivery
+package todo
 
 import (
 	"context"
@@ -8,21 +8,28 @@ import (
 	"strconv"
 	"time"
 	"todo/domain/apperrors"
-	"todo/domain/contextutil"
 	"todo/domain/entity"
-	"todo/internal/delivery/http/json/render"
-	"todo/internal/services"
+	"todo/pkg/contextutil"
+	"todo/pkg/jsonrender"
 
 	"github.com/go-ozzo/ozzo-validation/v4"
 )
 
-type TaskHandler struct {
-	taskService services.TaskService
+type taskService interface {
+	CreateTask(ctx context.Context, task *entity.Task) (*entity.Task, error)
+	GetUserTaskById(ctx context.Context, taskId, userId int) (*entity.Task, error)
+	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
+	UpdateTask(ctx context.Context, task *entity.Task) (*entity.Task, error)
+	DeleteTask(ctx context.Context, id, userId int) error
 }
 
-func NewTaskHandler(taskService services.TaskService) *TaskHandler {
+type TaskHandler struct {
+	taskService    taskService
+	handlerTimeout time.Duration
+}
 
-	return &TaskHandler{taskService: taskService}
+func NewTaskHandler(taskService taskService, handlerTimeout time.Duration) *TaskHandler {
+	return &TaskHandler{taskService: taskService, handlerTimeout: handlerTimeout}
 }
 
 type TaskCreateRequest struct {
@@ -61,7 +68,7 @@ type TaskResponse struct {
 }
 
 func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), h.handlerTimeout)
 	defer cancel()
 
 	userId, ok := contextutil.GetUserIdFromContext(r.Context())
@@ -100,7 +107,7 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), h.handlerTimeout)
 	defer cancel()
 
 	taskId, err := strconv.Atoi(r.PathValue("task_id"))
@@ -148,7 +155,7 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), h.handlerTimeout)
 	defer cancel()
 	var t TaskCreateRequest
 	err := jsonrender.DecodeBody(w, r, &t)
@@ -180,7 +187,7 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		var limitErr *apperrors.ErrLimitTasksReached
 		if ok := errors.As(err, &limitErr); ok {
-			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Sorry, you reach limit tasks (%d), please delete dont need tasks and try again", limitErr.TasksLimit)}, w, http.StatusBadRequest)
+			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Sorry, you have reached your task limit (%d), please delete unnecessary tasks and try again", limitErr.TasksLimit)}, w, http.StatusUnprocessableEntity)
 			return
 
 		}
@@ -200,13 +207,14 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 		jsonrender.JSONResponse(map[string]any{"detail": "Failed to create task"}, w, http.StatusInternalServerError)
 		return
+
 	}
 
 	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusCreated)
 }
 
 func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), h.handlerTimeout)
 	defer cancel()
 	id, err := strconv.Atoi(r.PathValue("task_id"))
 
@@ -247,7 +255,7 @@ func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), h.handlerTimeout)
 	defer cancel()
 	var t TaskUpdateRequest
 

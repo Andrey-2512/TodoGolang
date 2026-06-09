@@ -1,0 +1,30 @@
+package users
+
+import (
+	"context"
+	"fmt"
+	"todo/domain/entity"
+)
+
+type taskRepository interface {
+	CountTasksUser(ctx context.Context, userId int) (int, error)
+}
+
+type ProfileService struct {
+	taskRepo   taskRepository
+	tasksLimit int
+}
+
+func NewProfileService(taskRepo taskRepository, tasksLimit int) *ProfileService {
+	return &ProfileService{taskRepo: taskRepo, tasksLimit: tasksLimit}
+}
+
+func (p *ProfileService) GetProfile(ctx context.Context, userId int, username string) (*entity.UserProfile, error) {
+	count, err := p.taskRepo.CountTasksUser(ctx, userId)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed get profile: %w", err)
+	}
+
+	return &entity.UserProfile{Username: username, CurrentTasks: count, TasksLimit: p.tasksLimit}, nil
+}

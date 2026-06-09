@@ -1,4 +1,4 @@
-package delivery
+package auth
 
 import (
 	"context"
@@ -8,18 +8,27 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/delivery/http/json/render"
-	"todo/internal/services"
+	"todo/pkg/jsonrender"
 
 	"github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type AuthHandler struct {
-	userService services.AuthService
+	userService    authService
+	handlerTimeout time.Duration
+	cookieSecure   bool
+	refreshTTL     time.Duration
 }
 
-func NewAuthHandler(service services.AuthService) *AuthHandler {
-	return &AuthHandler{userService: service}
+type authService interface {
+	Register(ctx context.Context, user *entity.User) (*entity.User, error)
+	Login(ctx context.Context, user *entity.User) (string, string, error)
+	Refresh(ctx context.Context, refreshToken string) (string, string, error)
+	RevokeToken(ctx context.Context, token string) error
+}
+
+func NewAuthHandler(service authService, handlerTimeout time.Duration, cookieSecure bool, refreshTTL time.Duration) *AuthHandler {
+	return &AuthHandler{userService: service, handlerTimeout: handlerTimeout, cookieSecure: cookieSecure, refreshTTL: refreshTTL}
 }
 
 type userRequest struct {
@@ -45,7 +54,7 @@ func (r *userRequest) Validate() error {
 }
 
 func (u *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), u.handlerTimeout)
 	defer cancel()
 	var userData userRequest
 
@@ -89,7 +98,7 @@ func (u *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), u.handlerTimeout)
 	defer cancel()
 
 	var userData userRequest
@@ -120,13 +129,13 @@ func (u *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{Name: "refresh_token", Value: refreshToken, Secure: false, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 7})
+	http.SetCookie(w, &http.Cookie{Name: "refresh_token", Value: refreshToken, Secure: u.cookieSecure, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: int(u.refreshTTL.Seconds())})
 
 	jsonrender.JSONResponse(map[string]any{"access_token": accessToken}, w, http.StatusOK)
 }
 
 func (u *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), u.handlerTimeout)
 	defer cancel()
 
 	refreshTokenCookie, err := r.Cookie("refresh_token")
@@ -160,9 +169,10 @@ func (u *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: "refresh_token", Value: refreshToken,
-		Secure:   false,
+		Secure:   u.cookieSecure,
 		HttpOnly: true,
-		Path:     "/", MaxAge: 60 * 60 * 24 * 7,
+		Path:     "/",
+		MaxAge:   int(u.refreshTTL.Seconds()),
 		SameSite: http.SameSiteLaxMode,
 	},
 	)
@@ -172,7 +182,7 @@ func (u *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), u.handlerTimeout)
 	defer cancel()
 	refreshTokenCookie, err := r.Cookie("refresh_token")
 	if err != nil {
@@ -185,7 +195,7 @@ func (u *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "refresh_token",
 				Value:    "",
-				Secure:   false,
+				Secure:   u.cookieSecure,
 				HttpOnly: true,
 				Path:     "/",
 				MaxAge:   -1,
@@ -208,16 +218,12 @@ func (u *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Secure:   false,
+		Secure:   u.cookieSecure,
 		HttpOnly: true,
 		Path:     "/",
 		MaxAge:   -1,
 	})
 
 	w.WriteHeader(http.StatusNoContent)
-
-}
-
-func MeHandler(w http.ResponseWriter, r *http.Request) {
 
 }

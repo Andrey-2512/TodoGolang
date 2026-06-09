@@ -1,0 +1,86 @@
+package security
+
+import (
+	"errors"
+	"fmt"
+	"time"
+	"todo/domain/apperrors"
+	"todo/domain/entity"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
+type UserClaims struct {
+	UserId    int    `json:"user_id"`
+	Username  string `json:"username"`
+	TokenType string `json:"token_type"`
+	JTI       string `json:"jti"`
+	jwt.RegisteredClaims
+}
+
+type JWTManager struct {
+	secretKey  string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
+}
+
+func NewJWTManager(secretKey string, accessTTL time.Duration, refreshTTL time.Duration) *JWTManager {
+	return &JWTManager{secretKey: secretKey, accessTTL: accessTTL, refreshTTL: refreshTTL}
+}
+
+func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
+	claims := UserClaims{Username: user.Username, UserId: user.UserID, TokenType: tokenType, JTI: uuid.New().String(), RegisteredClaims: jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
+	}}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(m.secretKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return token, nil
+}
+
+func (m *JWTManager) parseToken(jwtToken string, exceptedType string) (*UserClaims, error) {
+	token, err := jwt.ParseWithClaims(jwtToken, &UserClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, apperrors.ErrInvalidToken
+		}
+
+		return []byte(m.secretKey), nil
+	}, jwt.WithLeeway(3*time.Second), jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
+
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, apperrors.ErrSessionExpired
+		}
+		return nil, apperrors.ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(*UserClaims)
+	if !ok || !token.Valid {
+		return nil, apperrors.ErrInvalidToken
+	}
+
+	if claims.TokenType != exceptedType {
+		return nil, apperrors.ErrInvalidTokenType
+	}
+
+	return claims, nil
+}
+
+func (m *JWTManager) CreateAccessToken(user *entity.UserPayload) (string, error) {
+	return m.createToken(user, m.accessTTL, "access")
+}
+
+func (m *JWTManager) ParseAccessToken(jwtToken string) (*UserClaims, error) {
+	return m.parseToken(jwtToken, "access")
+}
+
+func (m *JWTManager) CreateRefreshToken(user *entity.UserPayload) (string, error) {
+	return m.createToken(user, m.refreshTTL, "refresh")
+}
+
+func (m *JWTManager) ParseRefreshToken(jwtToken string) (*UserClaims, error) {
+	return m.parseToken(jwtToken, "refresh")
+}

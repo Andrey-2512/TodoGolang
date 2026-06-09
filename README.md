@@ -129,6 +129,8 @@ http:
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
+  cookie_secure: false
+  handler_timeout: "5s"
 
 jwt:
   access_ttl: "30m"
@@ -139,8 +141,8 @@ database:
   host: "localhost"
   port: 5432
   name: "go_todo_db"
-  max_idle_conns: 100
-  max_open_conns: 100
+  max_idle_conns: 20
+  max_open_conns: 80
   max_conn_lifetime: "1h"
   conn_timeout: "10s"
 

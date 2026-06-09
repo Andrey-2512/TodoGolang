@@ -1,4 +1,4 @@
-package repositories
+package todo
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type cacheTaskRepository struct {
-	taskRepo       entity.TaskRepository
+type CacheTaskRepository struct {
+	taskRepo       taskRepository
 	redisClient    *redis.Client
 	userTaskPrefix string
 	taskPrefix     string
@@ -21,20 +21,20 @@ type cacheTaskRepository struct {
 	sft            singleflight.Group
 }
 
-func (c *cacheTaskRepository) taskKey(id, userId int) string {
+func (c *CacheTaskRepository) taskKey(id, userId int) string {
 	return fmt.Sprintf("%s%d:%s%d", c.taskPrefix, id, c.userTaskPrefix, userId)
 }
 
-func (c *cacheTaskRepository) userTasksKey(userId int) string {
+func (c *CacheTaskRepository) userTasksKey(userId int) string {
 	return fmt.Sprintf("%s%s%d", c.taskPrefix, c.userTaskPrefix, userId)
 }
 
-func NewCacheTaskRepository(taskRepo entity.TaskRepository, redisClient *redis.Client, cacheTTL time.Duration, taskPrefix, userTaskPrefix string) entity.TaskRepository {
-	return &cacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: taskPrefix, userTaskPrefix: userTaskPrefix, cacheTTL: cacheTTL}
+func NewCacheTaskRepository(taskRepo taskRepository, redisClient *redis.Client, cacheTTL time.Duration, taskPrefix, userTaskPrefix string) *CacheTaskRepository {
+	return &CacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: taskPrefix, userTaskPrefix: userTaskPrefix, cacheTTL: cacheTTL}
 }
 
-func (c *cacheTaskRepository) Create(ctx context.Context, t *entity.Task) (*entity.Task, error) {
-	createdTask, err := c.taskRepo.Create(ctx, t)
+func (c *CacheTaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+	createdTask, err := c.taskRepo.CreateAndCheckLimit(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed create task in pg: %w", err)
 	}
@@ -46,7 +46,7 @@ func (c *cacheTaskRepository) Create(ctx context.Context, t *entity.Task) (*enti
 
 }
 
-func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
+func (c *CacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
 	key := c.taskKey(id, userId)
 	res, err := c.redisClient.Get(ctx, key).Result()
 	if err == nil {
@@ -60,7 +60,7 @@ func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId in
 	}
 
 	v, err, _ := c.sft.Do(key, func() (any, error) {
-		task, err := c.taskRepo.GetUserTaskById(ctx, id, userId)
+		task, err := c.taskRepo.GetUserTaskById(context.WithoutCancel(ctx), id, userId)
 		if err != nil {
 			return nil, fmt.Errorf("failed get task in pg: %w", err)
 		}
@@ -76,7 +76,7 @@ func (c *cacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId in
 	return v.(*entity.Task), nil
 }
 
-func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
+func (c *CacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
 	key := c.userTasksKey(userId)
 	res, err := c.redisClient.Get(ctx, key).Result()
 
@@ -89,7 +89,7 @@ func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 		c.redisClient.Del(ctx, key)
 	}
 	v, err, _ := c.sft.Do(key, func() (any, error) {
-		tasks, err := c.taskRepo.GetAllUserTasks(ctx, userId)
+		tasks, err := c.taskRepo.GetAllUserTasks(context.WithoutCancel(ctx), userId)
 		if err != nil {
 			return nil, fmt.Errorf("failed get all tasks in pg: %w", err)
 		}
@@ -108,7 +108,7 @@ func (c *cacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 
 }
 
-func (c *cacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+func (c *CacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
 	updatedTask, err := c.taskRepo.Update(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed update task in pg: %w", err)
@@ -120,7 +120,7 @@ func (c *cacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*enti
 	return updatedTask, nil
 
 }
-func (c *cacheTaskRepository) Delete(ctx context.Context, id, userId int) error {
+func (c *CacheTaskRepository) Delete(ctx context.Context, id, userId int) error {
 	err := c.taskRepo.Delete(ctx, id, userId)
 	if err != nil {
 		return fmt.Errorf("failed delete task in pg: %w", err)
@@ -132,7 +132,7 @@ func (c *cacheTaskRepository) Delete(ctx context.Context, id, userId int) error 
 	return nil
 }
 
-func (c *cacheTaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
+func (c *CacheTaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
 	count, err := c.taskRepo.CountTasksUser(ctx, userId)
 	if err != nil {
 		return 0, fmt.Errorf("failed get count tasks in pg: %w", err)

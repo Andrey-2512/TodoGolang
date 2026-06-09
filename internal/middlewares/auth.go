@@ -5,16 +5,20 @@ import (
 	"net/http"
 	"strings"
 	"todo/domain/apperrors"
-	"todo/domain/contextutil"
-	"todo/internal/auth"
-	"todo/internal/delivery/http/json/render"
+	"todo/pkg/contextutil"
+	"todo/pkg/jsonrender"
+	"todo/pkg/security"
 )
 
 type Auth struct {
-	jwtManager auth.JWTManager
+	jwtManager jwtManager
 }
 
-func NewAuthMiddleware(jwtManager auth.JWTManager) *Auth {
+type jwtManager interface {
+	ParseAccessToken(jwtToken string) (*security.UserClaims, error)
+}
+
+func NewAuthMiddleware(jwtManager jwtManager) *Auth {
 	return &Auth{jwtManager: jwtManager}
 }
 
