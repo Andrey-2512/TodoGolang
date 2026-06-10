@@ -12,7 +12,7 @@ import (
 	"todo/internal/users"
 	"todo/pkg/database/postgres"
 	"todo/pkg/database/redis"
-	security2 "todo/pkg/security"
+	"todo/pkg/security"
 
 	redisLib "github.com/redis/go-redis/v9"
 
@@ -48,14 +48,14 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to setup migrations: %w", err)
 	}
 
-	redisClient, err := redis.NewRedisClient(cfg.Redis.ConnTimeout, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
+	redisClient, err := redis.NewRedisClient(cfg.Redis.ConnTimeout, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.Username, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup redis: %w", err)
 	}
 
-	jwt := security2.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
-	hasher := security2.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
+	jwt := security.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+	hasher := security.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
 
 	taskRepo := todo.NewTaskRepository(client, cfg.App.MaxTasksPerUser)
 	cacheTaskRepo := todo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)

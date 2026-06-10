@@ -8,13 +8,14 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRedisClient(connTimeout time.Duration, addr, password string, db, minIdleConns, poolSize int, connMaxLifetime time.Duration) (*redis.Client, error) {
+func NewRedisClient(connTimeout time.Duration, addr, password, username string, db, minIdleConns, poolSize int, connMaxLifetime time.Duration) (*redis.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connTimeout)
 	defer cancel()
 
 	client := redis.NewClient(&redis.Options{
 		Addr:            addr,
 		Password:        password,
+		Username:        username,
 		DB:              db,
 		PoolSize:        poolSize,
 		MinIdleConns:    minIdleConns,

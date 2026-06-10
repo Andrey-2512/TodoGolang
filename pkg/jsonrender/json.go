@@ -9,6 +9,7 @@ import (
 func JSONResponse(response any, w http.ResponseWriter, statusCode int) {
 	buf := &bytes.Buffer{}
 	if err := json.NewEncoder(buf).Encode(response); err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		http.Error(w, `{"detail": "Internal Error"}`, 500)
 		return
 	}

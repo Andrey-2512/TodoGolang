@@ -32,7 +32,7 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGTERM, os.Interrupt)
 
 	go func() {
-		if err = application.Run(); err != nil {
+		if err := application.Run(); err != nil {
 			serverShutdown <- err
 
 		}
