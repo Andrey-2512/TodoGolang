@@ -60,7 +60,8 @@ func (c *CacheTaskRepository) GetUserTaskById(ctx context.Context, id, userId in
 	}
 
 	v, err, _ := c.sft.Do(key, func() (any, error) {
-		task, err := c.taskRepo.GetUserTaskById(context.WithoutCancel(ctx), id, userId)
+		ctx := context.WithoutCancel(ctx)
+		task, err := c.taskRepo.GetUserTaskById(ctx, id, userId)
 		if err != nil {
 			return nil, fmt.Errorf("failed get task in pg: %w", err)
 		}
@@ -89,7 +90,8 @@ func (c *CacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 		c.redisClient.Del(ctx, key)
 	}
 	v, err, _ := c.sft.Do(key, func() (any, error) {
-		tasks, err := c.taskRepo.GetAllUserTasks(context.WithoutCancel(ctx), userId)
+		ctx := context.WithoutCancel(ctx)
+		tasks, err := c.taskRepo.GetAllUserTasks(ctx, userId)
 		if err != nil {
 			return nil, fmt.Errorf("failed get all tasks in pg: %w", err)
 		}

@@ -38,6 +38,5 @@ func (c *CORS) CORSMiddleware(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
-
 	})
 }

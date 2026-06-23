@@ -145,11 +145,12 @@ func (u *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 func (u *AuthService) RevokeToken(ctx context.Context, token string) error {
 	claims, err := u.jwt.ParseRefreshToken(token)
 	if err != nil {
+		if errors.Is(err, apperrors.ErrSessionExpired) {
+			return nil
+		}
 		return fmt.Errorf("failed parse refresh token: %w", err)
 	}
-	if ttl := time.Until(claims.ExpiresAt.Time); ttl <= 0 {
-		return nil
-	}
+
 	err = u.whitelist.Del(ctx, claims.JTI)
 	if err != nil {
 		return fmt.Errorf("failed delete from whitelist: %w", err)
