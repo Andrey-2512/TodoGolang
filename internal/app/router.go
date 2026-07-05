@@ -26,7 +26,8 @@ func NewRouter(taskHandler *todo.TaskHandler, usersHandler *auth.AuthHandler, au
 		r.Route("/{task_id}", func(r chi.Router) {
 			r.Get("/", taskHandler.GetTaskHandler)
 			r.Delete("/", taskHandler.DeleteTaskHandler)
-			r.Put("/", taskHandler.UpdateTask)
+			r.Patch("/", taskHandler.UpdateTaskPatch)
+			r.Put("/", taskHandler.UpdateTaskPut)
 		})
 
 	})

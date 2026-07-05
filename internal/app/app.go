@@ -14,6 +14,7 @@ import (
 	"todo/pkg/database/redis"
 	"todo/pkg/security"
 
+	"github.com/go-chi/chi/v5"
 	redisLib "github.com/redis/go-redis/v9"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +26,17 @@ type App struct {
 	redis  *redisLib.Client
 }
 
-func New(cfg *config.Config) (*App, error) {
+func setupRedis(cfg *config.Config) (*redisLib.Client, error) {
+	redisClient, err := redis.NewRedisClient(cfg.Redis.ConnTimeout, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.Username, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup redis: %w", err)
+	}
+
+	return redisClient, nil
+}
+
+func setupDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 	client, err := postgres.NewClient(cfg.Database.ConnTimeout, fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
 		cfg.Database.Username,
 		cfg.Database.Password,
@@ -48,32 +59,49 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to setup migrations: %w", err)
 	}
 
-	redisClient, err := redis.NewRedisClient(cfg.Redis.ConnTimeout, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.Username, cfg.Redis.DB, cfg.Redis.MinIdleConns, cfg.Redis.PoolSize, cfg.Redis.ConnMaxLifetime)
+	return client, nil
+}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup redis: %w", err)
-	}
+func setupRouter(cfg *config.Config, DbClient *pgxpool.Pool, redisClient *redisLib.Client) *chi.Mux {
+	jwt := security.NewJWTManager(cfg.JWT)
+	hasher := security.NewHasher(cfg.Hash)
 
-	jwt := security.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
-	hasher := security.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.Threads, cfg.Hash.SaltLength)
-
-	taskRepo := todo.NewTaskRepository(client, cfg.App.MaxTasksPerUser)
-	cacheTaskRepo := todo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.CacheTaskTTL, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix)
-	usersRepo := users.NewUsersRepository(client)
-	whitelistRepo := auth.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
+	taskRepo := todo.NewTaskRepository(DbClient, cfg.App)
+	cacheTaskRepo := todo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache)
+	usersRepo := users.NewUsersRepository(DbClient)
+	whitelistRepo := auth.NewWhitelistRepository(redisClient, cfg.JWT)
 
 	taskService := todo.NewTaskService(cacheTaskRepo)
 	usersService := auth.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
-	profileService := users.NewProfileService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
+	profileService := users.NewProfileService(cacheTaskRepo, cfg.App)
 
-	taskHandler := todo.NewTaskHandler(taskService, cfg.HTTP.HandlerTimeout)
-	usersHandler := auth.NewAuthHandler(usersService, cfg.HTTP.HandlerTimeout, cfg.HTTP.CookieSecure, cfg.JWT.RefreshTTL)
-	profileHandler := users.NewProfileHandler(profileService, cfg.HTTP.HandlerTimeout)
+	taskHandler := todo.NewTaskHandler(taskService, cfg.HTTP)
+	usersHandler := auth.NewAuthHandler(usersService, cfg.JWT, cfg.HTTP)
+	profileHandler := users.NewProfileHandler(profileService, cfg.HTTP)
 
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl)
 
 	mux := NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware, profileHandler)
+
+	return mux
+}
+
+func New(cfg *config.Config) (*App, error) {
+
+	client, err := setupDatabase(cfg)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup database: %w", err)
+	}
+
+	redisClient, err := setupRedis(cfg)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup redis: %w", err)
+	}
+
+	mux := setupRouter(cfg, client, redisClient)
 
 	return &App{
 		server: &http.Server{

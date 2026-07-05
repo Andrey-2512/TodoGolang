@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"todo/internal/config"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -18,13 +19,13 @@ type Hasher struct {
 	threads    uint8
 }
 
-func NewHasher(time, memory, KeyLen uint32, threads, saltLength uint8) *Hasher {
+func NewHasher(hash config.HashConfig) *Hasher {
 	return &Hasher{
-		time:       time,
-		memory:     memory,
-		threads:    threads,
-		keyLen:     KeyLen,
-		saltLength: saltLength,
+		time:       hash.Time,
+		memory:     hash.Memory,
+		threads:    hash.Threads,
+		keyLen:     hash.KeyLen,
+		saltLength: hash.SaltLength,
 	}
 }
 

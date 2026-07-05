@@ -14,9 +14,10 @@ type taskRepository interface {
 	CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error)
 	GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error)
 	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
-	Update(ctx context.Context, t *entity.Task) (*entity.Task, error)
+	UpdatePatch(ctx context.Context, t *UpdatePatchTaskInput) (*entity.Task, error)
 	Delete(ctx context.Context, id, userId int) error
 	CountTasksUser(ctx context.Context, userId int) (int, error)
+	UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error)
 }
 
 func NewTaskService(repo taskRepository) *TaskService {
@@ -47,8 +48,16 @@ func (t *TaskService) GetAllUserTasks(ctx context.Context, userId int) ([]entity
 	return tasks, nil
 }
 
-func (t *TaskService) UpdateTask(ctx context.Context, task *entity.Task) (*entity.Task, error) {
-	updatedTask, err := t.repo.Update(ctx, task)
+func (t *TaskService) UpdateTaskPatch(ctx context.Context, task *UpdatePatchTaskInput) (*entity.Task, error) {
+	updatedTask, err := t.repo.UpdatePatch(ctx, task)
+	if err != nil {
+		return nil, fmt.Errorf("failed update task: %w", err)
+	}
+	return updatedTask, nil
+}
+
+func (t *TaskService) UpdateTaskPut(ctx context.Context, task *entity.Task) (*entity.Task, error) {
+	updatedTask, err := t.repo.UpdatePut(ctx, task)
 	if err != nil {
 		return nil, fmt.Errorf("failed update task: %w", err)
 	}

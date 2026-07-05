@@ -8,14 +8,17 @@ import (
 
 func JSONResponse(response any, w http.ResponseWriter, statusCode int) {
 	buf := &bytes.Buffer{}
+
 	if err := json.NewEncoder(buf).Encode(response); err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"detail": "Internal Error"}`, 500)
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`{"detail": "Internal Error"}`))
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	buf.WriteTo(w)
+	_, _ = buf.WriteTo(w)
 
 }
 

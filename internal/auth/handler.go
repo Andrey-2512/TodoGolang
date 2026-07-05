@@ -3,14 +3,15 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
+	"todo/internal/config"
 	"todo/pkg/jsonrender"
-
-	"github.com/go-ozzo/ozzo-validation/v4"
+	"todo/pkg/validation"
 )
 
 type AuthHandler struct {
@@ -27,8 +28,8 @@ type authService interface {
 	RevokeToken(ctx context.Context, token string) error
 }
 
-func NewAuthHandler(service authService, handlerTimeout time.Duration, cookieSecure bool, refreshTTL time.Duration) *AuthHandler {
-	return &AuthHandler{userService: service, handlerTimeout: handlerTimeout, cookieSecure: cookieSecure, refreshTTL: refreshTTL}
+func NewAuthHandler(service authService, jwt config.JWTConfig, server config.HTTPServer) *AuthHandler {
+	return &AuthHandler{userService: service, handlerTimeout: server.HandlerTimeout, cookieSecure: server.CookieSecure, refreshTTL: jwt.RefreshTTL}
 }
 
 type userRequest struct {
@@ -39,18 +40,22 @@ type userRequest struct {
 var regexpValidate = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 func (r *userRequest) Validate() error {
-	return validation.ValidateStruct(r,
-		validation.Field(
-			&r.Username,
-			validation.Required.Error("Field username is required"),
-			validation.RuneLength(8, 64).Error("Username must be between 8 and 64 characters long"),
-			validation.Match(regexpValidate).Error("In field username only Latin letters, numbers, underscores are allowed"),
-		),
-		validation.Field(&r.Password,
-			validation.Required.Error("Field password is required"),
-			validation.RuneLength(8, 64).Error("Password must be between 8 and 64 characters long"),
-		),
+	errs := make(validation.Errors)
+
+	validation.Check[*string](errs, "username", &r.Username,
+		validation.RequiredString("Check username is required"),
+		validation.RuneLength(8, 64, "Username must be between 8 and 64 characters long"),
+		validation.Match(regexpValidate, "In field username only Latin letters, numbers, underscores are allowed"),
 	)
+
+	validation.Check[*string](errs, "password", &r.Password,
+		validation.RequiredString("Check password is required"),
+		validation.RuneLength(8, 64, "Password must be between 8 and 64 characters long"),
+	)
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
 }
 
 func (u *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +65,10 @@ func (u *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	err := jsonrender.DecodeBody(w, r, &userData)
 	if err != nil {
+		if bytesError, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Body too large (max. %d KB)", bytesError.Limit/1024)}, w, http.StatusRequestEntityTooLarge)
+			return
+		}
 		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
 	}
@@ -105,6 +114,10 @@ func (u *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	err := jsonrender.DecodeBody(w, r, &userData)
 	if err != nil {
+		if bytesError, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Body too large (max. %d KB)", bytesError.Limit/1024)}, w, http.StatusRequestEntityTooLarge)
+			return
+		}
 		jsonrender.JSONResponse(map[string]any{"detail": "Incorrect json data"}, w, http.StatusBadRequest)
 		return
 	}

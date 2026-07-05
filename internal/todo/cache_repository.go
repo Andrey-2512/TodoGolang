@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"todo/domain/entity"
+	"todo/internal/config"
 
 	"encoding/json"
 
@@ -29,8 +30,8 @@ func (c *CacheTaskRepository) userTasksKey(userId int) string {
 	return fmt.Sprintf("%s%s%d", c.taskPrefix, c.userTaskPrefix, userId)
 }
 
-func NewCacheTaskRepository(taskRepo taskRepository, redisClient *redis.Client, cacheTTL time.Duration, taskPrefix, userTaskPrefix string) *CacheTaskRepository {
-	return &CacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: taskPrefix, userTaskPrefix: userTaskPrefix, cacheTTL: cacheTTL}
+func NewCacheTaskRepository(taskRepo taskRepository, redisClient *redis.Client, cache config.CacheConfig) *CacheTaskRepository {
+	return &CacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: cache.TasksPrefix, userTaskPrefix: cache.UserTasksPrefix, cacheTTL: cache.CacheTaskTTL}
 }
 
 func (c *CacheTaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
@@ -110,8 +111,21 @@ func (c *CacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 
 }
 
-func (c *CacheTaskRepository) Update(ctx context.Context, t *entity.Task) (*entity.Task, error) {
-	updatedTask, err := c.taskRepo.Update(ctx, t)
+func (c *CacheTaskRepository) UpdatePatch(ctx context.Context, t *UpdatePatchTaskInput) (*entity.Task, error) {
+	updatedTask, err := c.taskRepo.UpdatePatch(ctx, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed update task in pg: %w", err)
+	}
+	taskKey := c.taskKey(updatedTask.Id, updatedTask.UserId)
+	allTasksKey := c.userTasksKey(updatedTask.UserId)
+	c.redisClient.Del(ctx, taskKey, allTasksKey)
+
+	return updatedTask, nil
+
+}
+
+func (c *CacheTaskRepository) UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+	updatedTask, err := c.taskRepo.UpdatePut(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed update task in pg: %w", err)
 	}

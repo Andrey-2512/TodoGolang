@@ -30,7 +30,7 @@ The project follows the layered architecture pattern:
 ```http request
  GET /tasks/ Return All Tasks
 Authorization Required
- ```
+```
 
 ```http request
 GET /tasks/{id}/ Return Task By id
@@ -42,9 +42,8 @@ POST /tasks/ Create Task Return Created Task
 
 Arguments:
 {
-    "title": "EXAMPLE",
-                             # required at least 1 field
-    "description": "EXAMPLE"
+    "title": "EXAMPLE",       # required
+    "description": "EXAMPLE"  # optional
 }
 
 Authorization Required
@@ -57,13 +56,24 @@ Authorization Required
 ```
 
 ```http request
-PUT /tasks/ Dynamic Update Task Return Update Task
+PUT /tasks/{id} Full Update Task Return Updated Task
 
 Arguments:
 {
-    # You can send 1 field which you wnat update but 1 required
+    "title": "Update EXAMPLE",       # required
+    "description": "Update EXAMPLE"  # optional
+}
+
+Authorization Required
+```
+
+```http request
+PATCH /tasks/{id} Smart Patch Task Return Updated Task
+
+Arguments:
+{
+    # Send only the fields you want to update, at least 1 field required
     "title": "Update EXAMPLE",
-                                    # required at least 1 field
     "description": "Update EXAMPLE"
 }
 

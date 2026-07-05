@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 	"todo/domain/apperrors"
+	"todo/internal/config"
 
 	"github.com/redis/go-redis/v9"
 )
 
-func NewWhitelistRepository(client *redis.Client, whitelistPrefix string) *WhitelistRepository {
-	return &WhitelistRepository{redisClient: client, prefix: whitelistPrefix}
+func NewWhitelistRepository(client *redis.Client, jwt config.JWTConfig) *WhitelistRepository {
+	return &WhitelistRepository{redisClient: client, prefix: jwt.WhitelistPrefix}
 }
 
 type WhitelistRepository struct {

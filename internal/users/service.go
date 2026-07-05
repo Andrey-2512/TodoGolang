@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"todo/domain/entity"
+	"todo/internal/config"
 )
 
 type taskRepository interface {
@@ -15,8 +16,8 @@ type ProfileService struct {
 	tasksLimit int
 }
 
-func NewProfileService(taskRepo taskRepository, tasksLimit int) *ProfileService {
-	return &ProfileService{taskRepo: taskRepo, tasksLimit: tasksLimit}
+func NewProfileService(taskRepo taskRepository, app config.AppConfig) *ProfileService {
+	return &ProfileService{taskRepo: taskRepo, tasksLimit: app.MaxTasksPerUser}
 }
 
 func (p *ProfileService) GetProfile(ctx context.Context, userId int, username string) (*entity.UserProfile, error) {

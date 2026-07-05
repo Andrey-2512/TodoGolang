@@ -6,6 +6,7 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
+	"todo/internal/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -25,8 +26,8 @@ type JWTManager struct {
 	refreshTTL time.Duration
 }
 
-func NewJWTManager(secretKey string, accessTTL time.Duration, refreshTTL time.Duration) *JWTManager {
-	return &JWTManager{secretKey: secretKey, accessTTL: accessTTL, refreshTTL: refreshTTL}
+func NewJWTManager(jwt config.JWTConfig) *JWTManager {
+	return &JWTManager{secretKey: jwt.SecretKey, accessTTL: jwt.AccessTTL, refreshTTL: jwt.RefreshTTL}
 }
 
 func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
