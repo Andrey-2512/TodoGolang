@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -12,7 +13,43 @@ type Rule[T any] func(T) error
 type Errors map[string]string
 
 func (e Errors) Error() string {
-	return "validation error"
+	if len(e) == 0 {
+		return ""
+	}
+
+	builder := strings.Builder{}
+	keys := make([]string, len(e))
+
+	totalLen := 0
+	index := 0
+
+	for k, v := range e {
+		totalLen += len(k) + len(v) + len(": ")
+
+		keys[index] = k
+		index++
+
+	}
+	slices.Sort(keys)
+
+	if index > 0 {
+		totalLen += len("; ") * (index - 1)
+	}
+
+	builder.Grow(totalLen)
+
+	for i, k := range keys {
+		if i > 0 {
+			_, _ = builder.WriteString("; ")
+		}
+
+		_, _ = builder.WriteString(k)
+		_, _ = builder.WriteString(": ")
+		_, _ = builder.WriteString(e[k])
+
+	}
+
+	return builder.String()
 }
 
 func Check[T any](errs Errors, fieldName string, val T, rules ...Rule[T]) {
