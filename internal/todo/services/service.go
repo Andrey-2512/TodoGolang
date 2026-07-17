@@ -1,4 +1,4 @@
-package todo
+package services
 
 import (
 	"context"
@@ -14,7 +14,7 @@ type taskRepository interface {
 	CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error)
 	GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error)
 	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
-	UpdatePatch(ctx context.Context, t *UpdatePatchTaskInput) (*entity.Task, error)
+	UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error)
 	Delete(ctx context.Context, id, userId int) error
 	CountTasksUser(ctx context.Context, userId int) (int, error)
 	UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error)
@@ -24,7 +24,7 @@ func NewTaskService(repo taskRepository) *TaskService {
 	return &TaskService{repo: repo}
 }
 
-func (t *TaskService) CreateTask(ctx context.Context, task *entity.Task) (*entity.Task, error) {
+func (t *TaskService) CreateTaskAndCheckLimit(ctx context.Context, task *entity.Task) (*entity.Task, error) {
 	createdTask, err := t.repo.CreateAndCheckLimit(ctx, task)
 	if err != nil {
 		return nil, fmt.Errorf("failed create task: %w", err)
@@ -48,7 +48,7 @@ func (t *TaskService) GetAllUserTasks(ctx context.Context, userId int) ([]entity
 	return tasks, nil
 }
 
-func (t *TaskService) UpdateTaskPatch(ctx context.Context, task *UpdatePatchTaskInput) (*entity.Task, error) {
+func (t *TaskService) UpdateTaskPatch(ctx context.Context, task *entity.PatchTask) (*entity.Task, error) {
 	updatedTask, err := t.repo.UpdatePatch(ctx, task)
 	if err != nil {
 		return nil, fmt.Errorf("failed update task: %w", err)

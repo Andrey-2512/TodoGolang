@@ -2,17 +2,17 @@ package app
 
 import (
 	"net/http"
-	"todo/internal/auth"
+	"todo/internal/auth/handlers"
 	"todo/internal/middlewares"
-	"todo/internal/todo"
-	"todo/internal/users"
+	todohandlers "todo/internal/todo/handlers"
+	usershandlers "todo/internal/users/handlers"
 	"todo/pkg/jsonrender"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(taskHandler *todo.TaskHandler, usersHandler *auth.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS, profileHandler *users.ProfileHandler) *chi.Mux {
+func NewRouter(taskHandler *todohandlers.TaskHandler, usersHandler *handlers.AuthHandler, authMiddleware *middlewares.Auth, corsMiddleware *middlewares.CORS, profileHandler *usershandlers.ProfileHandler) *chi.Mux {
 	mainRouter := chi.NewRouter()
 
 	mainRouter.Use(middleware.StripSlashes)

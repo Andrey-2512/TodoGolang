@@ -1,11 +1,10 @@
-package users
+package handlers
 
 import (
 	"context"
 	"net/http"
 	"time"
 	"todo/domain/entity"
-	"todo/internal/config"
 	"todo/pkg/contextutil"
 	"todo/pkg/jsonrender"
 )
@@ -25,8 +24,8 @@ type Profile struct {
 	TasksLimit   int    `json:"tasks_limit"`
 }
 
-func NewProfileHandler(profileService profileService, server config.HTTPServer) *ProfileHandler {
-	return &ProfileHandler{profileService: profileService, handlerTimeout: server.HandlerTimeout}
+func NewProfileHandler(profileService profileService, handlerTimeout time.Duration) *ProfileHandler {
+	return &ProfileHandler{profileService: profileService, handlerTimeout: handlerTimeout}
 }
 
 func (p *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {

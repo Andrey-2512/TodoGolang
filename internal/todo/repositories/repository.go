@@ -1,4 +1,4 @@
-package todo
+package repositories
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"strings"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/config"
-	"todo/pkg/optional"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,15 +17,8 @@ type TaskRepository struct {
 	limitTasks int
 }
 
-func NewTaskRepository(db *pgxpool.Pool, app config.AppConfig) *TaskRepository {
-	return &TaskRepository{db: db, limitTasks: app.MaxTasksPerUser}
-}
-
-type UpdatePatchTaskInput struct {
-	Id          int
-	Title       optional.Optional[string]
-	Description optional.Optional[string]
-	UserId      int
+func NewTaskRepository(db *pgxpool.Pool, maxTasksPerUser int) *TaskRepository {
+	return &TaskRepository{db: db, limitTasks: maxTasksPerUser}
 }
 
 func (r *TaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
@@ -121,14 +112,14 @@ func (r *TaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]ent
 	return listTask, nil
 }
 
-func (r *TaskRepository) UpdatePatch(ctx context.Context, t *UpdatePatchTaskInput) (*entity.Task, error) {
+func (r *TaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error) {
 	var queryParts []string
 	var args []any
-	ArgID := 1
+	argId := 1
 
 	if t.Description.Set {
-		queryParts = append(queryParts, fmt.Sprintf("description = $%d", ArgID))
-		ArgID++
+		queryParts = append(queryParts, fmt.Sprintf("description = $%d", argId))
+		argId++
 		if t.Description.Null {
 			args = append(args, nil)
 		} else {
@@ -137,9 +128,9 @@ func (r *TaskRepository) UpdatePatch(ctx context.Context, t *UpdatePatchTaskInpu
 	}
 
 	if t.Title.Set {
-		queryParts = append(queryParts, fmt.Sprintf("title = $%d", ArgID))
+		queryParts = append(queryParts, fmt.Sprintf("title = $%d", argId))
 		args = append(args, t.Title.Val)
-		ArgID++
+		argId++
 	}
 
 	if len(queryParts) <= 0 {
@@ -150,7 +141,7 @@ func (r *TaskRepository) UpdatePatch(ctx context.Context, t *UpdatePatchTaskInpu
 
 	args = append(args, t.UserId)
 
-	query := "UPDATE tasks SET " + strings.Join(queryParts, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = $%d RETURNING id, title, description, user_id", ArgID, ArgID+1)
+	query := "UPDATE tasks SET " + strings.Join(queryParts, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = $%d RETURNING id, title, description, user_id", argId, argId+1)
 
 	var task entity.Task
 	err := r.db.QueryRow(ctx, query, args...).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)

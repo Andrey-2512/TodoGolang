@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/config"
 	"todo/pkg/jsonrender"
 	"todo/pkg/validation"
 )
@@ -28,8 +27,8 @@ type authService interface {
 	RevokeToken(ctx context.Context, token string) error
 }
 
-func NewAuthHandler(service authService, jwt config.JWTConfig, server config.HTTPServer) *AuthHandler {
-	return &AuthHandler{userService: service, handlerTimeout: server.HandlerTimeout, cookieSecure: server.CookieSecure, refreshTTL: jwt.RefreshTTL}
+func NewAuthHandler(service authService, handlerTimeout time.Duration, cookieSecure bool, refreshTTL time.Duration) *AuthHandler {
+	return &AuthHandler{userService: service, handlerTimeout: handlerTimeout, cookieSecure: cookieSecure, refreshTTL: refreshTTL}
 }
 
 type userRequest struct {

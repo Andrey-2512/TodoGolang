@@ -53,6 +53,9 @@ func (e Errors) Error() string {
 }
 
 func Check[T any](errs Errors, fieldName string, val T, rules ...Rule[T]) {
+	if errs == nil {
+		errs = Errors{}
+	}
 	if _, ok := errs[fieldName]; ok {
 		return
 	}

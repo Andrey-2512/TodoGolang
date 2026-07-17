@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
-	"todo/internal/config"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -19,13 +18,13 @@ type Hasher struct {
 	threads    uint8
 }
 
-func NewHasher(hash config.HashConfig) *Hasher {
+func NewHasher(time, memory, keyLen uint32, saltLength, threads uint8) *Hasher {
 	return &Hasher{
-		time:       hash.Time,
-		memory:     hash.Memory,
-		threads:    hash.Threads,
-		keyLen:     hash.KeyLen,
-		saltLength: hash.SaltLength,
+		time:       time,
+		memory:     memory,
+		threads:    threads,
+		keyLen:     keyLen,
+		saltLength: saltLength,
 	}
 }
 
@@ -33,7 +32,7 @@ func (h *Hasher) Hash(password string) (string, error) {
 	salt := make([]byte, h.saltLength)
 
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("failed to hash: %v", err)
+		return "", fmt.Errorf("failed to hash: %w", err)
 	}
 	hashPassword := argon2.IDKey([]byte(password), salt, h.time, h.memory, h.threads, h.keyLen)
 
@@ -60,6 +59,10 @@ func (h *Hasher) Verify(hashPassword string, password string) (bool, error) {
 	_, err := fmt.Sscanf(parts[2], "v=%d", &version)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse version: %w", err)
+	}
+
+	if version != argon2.Version {
+		return false, fmt.Errorf("incorrect version hash want %d but got %d", argon2.Version, version)
 	}
 
 	_, err = fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &m, &t, &p)

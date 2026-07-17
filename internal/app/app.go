@@ -5,11 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"todo/internal/auth"
+	authhandlers "todo/internal/auth/handlers"
+	authrepo "todo/internal/auth/repositories"
+	authsvc "todo/internal/auth/services"
 	"todo/internal/config"
 	"todo/internal/middlewares"
-	"todo/internal/todo"
-	"todo/internal/users"
+	todohandlers "todo/internal/todo/handlers"
+	todorepo "todo/internal/todo/repositories"
+	todosvc "todo/internal/todo/services"
+	usershandlers "todo/internal/users/handlers"
+	usersrepo "todo/internal/users/repositories"
+	userssvc "todo/internal/users/services"
 	"todo/pkg/database/postgres"
 	"todo/pkg/database/redis"
 	"todo/pkg/security"
@@ -48,39 +54,28 @@ func setupDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to create postgres client: %w", err)
 	}
 
-	err = postgres.SetMigrations(fmt.Sprintf("pgx5://%s:%s@%s:%d/%s",
-		cfg.Database.Username,
-		cfg.Database.Password,
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.Name),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup migrations: %w", err)
-	}
-
 	return client, nil
 }
 
 func setupRouter(cfg *config.Config, DbClient *pgxpool.Pool, redisClient *redisLib.Client) *chi.Mux {
-	jwt := security.NewJWTManager(cfg.JWT)
-	hasher := security.NewHasher(cfg.Hash)
+	jwt := security.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+	hasher := security.NewHasher(cfg.Hash.Time, cfg.Hash.Memory, cfg.Hash.KeyLen, cfg.Hash.SaltLength, cfg.Hash.Threads)
 
-	taskRepo := todo.NewTaskRepository(DbClient, cfg.App)
-	cacheTaskRepo := todo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache)
-	usersRepo := users.NewUsersRepository(DbClient)
-	whitelistRepo := auth.NewWhitelistRepository(redisClient, cfg.JWT)
+	taskRepo := todorepo.NewTaskRepository(DbClient, cfg.App.MaxTasksPerUser)
+	cacheTaskRepo := todorepo.NewCacheTaskRepository(taskRepo, redisClient, cfg.Cache.TasksPrefix, cfg.Cache.UserTasksPrefix, cfg.Cache.CacheTaskTTL)
+	usersRepo := usersrepo.NewUsersRepository(DbClient)
+	whitelistRepo := authrepo.NewWhitelistRepository(redisClient, cfg.JWT.WhitelistPrefix)
 
-	taskService := todo.NewTaskService(cacheTaskRepo)
-	usersService := auth.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
-	profileService := users.NewProfileService(cacheTaskRepo, cfg.App)
+	taskService := todosvc.NewTaskService(cacheTaskRepo)
+	usersService := authsvc.NewAuthService(usersRepo, hasher, jwt, whitelistRepo)
+	profileService := userssvc.NewProfileService(cacheTaskRepo, cfg.App.MaxTasksPerUser)
 
-	taskHandler := todo.NewTaskHandler(taskService, cfg.HTTP)
-	usersHandler := auth.NewAuthHandler(usersService, cfg.JWT, cfg.HTTP)
-	profileHandler := users.NewProfileHandler(profileService, cfg.HTTP)
+	taskHandler := todohandlers.NewTaskHandler(taskService, cfg.HTTP.HandlerTimeout)
+	usersHandler := authhandlers.NewAuthHandler(usersService, cfg.HTTP.HandlerTimeout, cfg.HTTP.CookieSecure, cfg.JWT.RefreshTTL)
+	profileHandler := usershandlers.NewProfileHandler(profileService, cfg.HTTP.HandlerTimeout)
 
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
-	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl)
+	corsMiddleware := middlewares.NewCORSMiddleware(cfg.HTTP.CORSUrl, cfg.HTTP.AllowHeaders, cfg.HTTP.AllowMethods, cfg.HTTP.AllowCredentials, cfg.HTTP.AccessControlMaxAge)
 
 	mux := NewRouter(taskHandler, usersHandler, authMiddleware, corsMiddleware, profileHandler)
 

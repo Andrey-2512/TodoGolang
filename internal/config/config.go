@@ -2,11 +2,9 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -35,13 +33,17 @@ type HashConfig struct {
 }
 
 type HTTPServer struct {
-	Addr           string        `yaml:"addr" env-default:":8080"`
-	CORSUrl        []string      `yaml:"cors_url" env-default:"http://localhost:8080"`
-	IdleTimeout    time.Duration `yaml:"idle_timeout" env-default:"60s"`
-	ReadTimeout    time.Duration `yaml:"read_timeout" env-default:"15s"`
-	WriteTimeout   time.Duration `yaml:"write_timeout" env-default:"10s"`
-	HandlerTimeout time.Duration `yaml:"handler_timeout" env-default:"5s"`
-	CookieSecure   bool          `yaml:"cookie_secure" env-default:"true"`
+	Addr                string        `yaml:"addr" env-default:":8080"`
+	CORSUrl             []string      `yaml:"cors_url" env-default:"http://localhost:8080"`
+	AllowCredentials    bool          `yaml:"allow_credentials" env-default:"false"`
+	AllowMethods        []string      `yaml:"allow_methods" env-default:"GET,POST,PUT,PATCH,DELETE,OPTIONS"`
+	AllowHeaders        []string      `yaml:"allow_headers" env-default:"Authorization, Content-Type"`
+	AccessControlMaxAge int           `yaml:"access_control_max_age" env-default:"3800"`
+	IdleTimeout         time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	ReadTimeout         time.Duration `yaml:"read_timeout" env-default:"15s"`
+	WriteTimeout        time.Duration `yaml:"write_timeout" env-default:"10s"`
+	HandlerTimeout      time.Duration `yaml:"handler_timeout" env-default:"5s"`
+	CookieSecure        bool          `yaml:"cookie_secure" env-default:"true"`
 }
 
 type DatabaseConfig struct {
@@ -79,12 +81,9 @@ type AppConfig struct {
 	MaxTasksPerUser int `yaml:"max_tasks_per_user" env-default:"100"`
 }
 
-func LoadConfig() (*Config, error) {
-	_ = godotenv.Load()
-
-	configPath := os.Getenv("CONFIG_PATH")
+func LoadConfig(configPath string) (*Config, error) {
 	if configPath == "" {
-		configPath = "config.yaml"
+		return nil, fmt.Errorf("failed to get config, incorrect config path")
 	}
 	var cfg Config
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {

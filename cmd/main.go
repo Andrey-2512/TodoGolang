@@ -11,10 +11,14 @@ import (
 
 	"todo/internal/app"
 	"todo/internal/config"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	cfg, err := config.LoadConfig()
+	_ = godotenv.Load()
+	configPath := os.Getenv("CONFIG_PATH")
+	cfg, err := config.LoadConfig(configPath)
 
 	if err != nil {
 		log.Fatalf("failed load config: %v", err)

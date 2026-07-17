@@ -1,128 +1,129 @@
-**High-Performance Task Management API built on Golang**
+<div align="center">
 
-This TODO API on golang with Clean architecture
+# 📋 Go TODO API
 
-## Performance ⚡
+**High-performance Task Management API built with Go & Clean Architecture**
 
-This API shows **12 000 RPS** on benchmark on standard computer
+[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat-square&logo=go)](https://go.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgxpool-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-cache-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](#)
 
-Tested with `hey`
-```text
-Requests/sec: 12243.8
-Average latency: 0.0081s
-P99 latency: 0.0266s
+</div>
+
+---
+
+## 📖 Table of Contents
+
+- [Architecture Overview](#-architecture-overview)
+- [Prerequisites](#-prerequisites)
+- [API Reference](#-api-reference)
+    - [Auth](#auth)
+    - [Tasks](#tasks)
+    - [Session](#session)
+- [Configuration](#%EF%B8%8F-configuration)
+- [Getting Started](#-getting-started)
+- [Tech Stack](#-tech-stack)
+
+---
+
+## 🏗 Architecture Overview
+
+The project follows a **layered (Clean) architecture**, keeping business logic isolated from infrastructure concerns:
+
+| Layer | Responsibility |
+|---|---|
+| **Domain** | Entities and business logic interfaces |
+| **Service** | Business logic implementation |
+| **Repository** | PostgreSQL interaction via `pgxpool` |
+| **Delivery** | HTTP handlers and middleware |
+
+```
+cmd/            → application entrypoint
+internal/
+  domain/       → entities & interfaces
+  service/      → business logic
+  repository/   → data access (Postgres)
+  delivery/     → HTTP handlers, middleware, routing
+pkg/
+  database/     → migrations & DB connection setup
 ```
 
-## Architecture Overview 🏗
-The project follows the layered architecture pattern:
-- **Domain:** Entities and business logic interfaces.
-- **Service:** Business logic implementation.
-- **Repository:** PostgreSQL interaction using `pgxpool`.
-- **Delivery:** HTTP handlers and middleware layer.
+---
 
+## ⚙️ Prerequisites
 
-## Prerequisites
-- Go 1.22+
-- PostgreSQL
-- Redis
+| Dependency | Version |
+|---|---|
+| Go | `1.22+` |
+| PostgreSQL | `latest` |
+| Redis | `latest` |
 
-## 1. Endpoints 🔝
-```http request
- GET /tasks/ Return All Tasks
-Authorization Required
-```
+---
 
-```http request
-GET /tasks/{id}/ Return Task By id
-Authorization Required
-```
+## 🔝 API Reference
 
-```http request
-POST /tasks/ Create Task Return Created Task
+> 🔒 = requires `Authorization` header (JWT)
 
-Arguments:
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/register/` | Register a new user |
+| `POST` | `/login/` | Log in, returns JWT |
+| `POST` | `/refresh/` 🔒 | Refresh JWT |
+| `POST` | `/logout/` | Log out, returns `204 No Content` |
+
+**Register / Login payload:**
+```json
 {
-    "title": "EXAMPLE",       # required
-    "description": "EXAMPLE"  # optional
-}
-
-Authorization Required
-```
-
-```http request
-DELETE /tasks/{id} Delete Task Return 204 No Content
-
-Authorization Required
-```
-
-```http request
-PUT /tasks/{id} Full Update Task Return Updated Task
-
-Arguments:
-{
-    "title": "Update EXAMPLE",       # required
-    "description": "Update EXAMPLE"  # optional
-}
-
-Authorization Required
-```
-
-```http request
-PATCH /tasks/{id} Smart Patch Task Return Updated Task
-
-Arguments:
-{
-    # Send only the fields you want to update, at least 1 field required
-    "title": "Update EXAMPLE",
-    "description": "Update EXAMPLE"
-}
-
-Authorization Required
-```
-
-```http request
-GET /me/ Return Current Session, Current Count Tasks And Max. Count Tasks Limit
-
-Authorization Required
-```
-
-```http request
-POST /register/ Return Registered User Username
-Arguments:
-{
-    "username": "EXAMPLE", # required
-    "password": "EXAMPLE   # required
+  "username": "EXAMPLE",
+  "password": "EXAMPLE"
 }
 ```
 
-```http request
-POST /login/ Return Authorization Token JWT
-Arguments:
+### Tasks
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/tasks/` 🔒 | Get all tasks |
+| `GET` | `/tasks/{id}/` 🔒 | Get task by ID |
+| `POST` | `/tasks/` 🔒 | Create a task |
+| `PUT` | `/tasks/{id}` 🔒 | Full update of a task |
+| `PATCH` | `/tasks/{id}` 🔒 | Partial update of a task |
+| `DELETE` | `/tasks/{id}` 🔒 | Delete a task, returns `204 No Content` |
+
+**Create / Full update payload:**
+```json
 {
-    "username": "EXAMPLE", # required
-    "password": "EXAMPLE   # required
+  "title": "EXAMPLE",       // required
+  "description": "EXAMPLE"  // optional
 }
 ```
 
-```http request
-POST /refresh/ Return Refreshed Authorization Token JWT
-
-Authorization Required
-
+**Partial update (`PATCH`) payload:**
+```json
+{
+  // send only the fields you want to update — at least one is required
+  "title": "Update EXAMPLE",
+  "description": "Update EXAMPLE"
+}
 ```
 
-```http request
-POST /logout/ This endpoint is exiting your account Return 204 No Content
-```
+### Session
 
-## 2. Configuration ⚙
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/me/` 🔒 | Current session info: task count & max. limit |
 
+---
 
-You must create .yaml and .env files
+## ⚙️ Configuration
 
-**For example:**
+Create a `config.yaml` and `.env` file in the project root before running the app.
 
-**config.yaml**
+<details>
+<summary><strong>config.yaml</strong></summary>
 
 ```yaml
 hash:
@@ -135,7 +136,19 @@ hash:
 http:
   addr: "0.0.0.0:8000"
   cors_url:
-    - "*"
+    - "http://localhost:5050"
+  allow_credentials: true
+  allow_methods:
+    - "GET"
+    - "POST"
+    - "PATCH"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allow_headers:
+    - "Authorization"
+    - "Content-Type"
+  access_control_max_age: 3800
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
@@ -175,34 +188,63 @@ app:
   max_tasks_per_user: 500
 ```
 
-**.env**
+</details>
+
+<details>
+<summary><strong>.env</strong></summary>
+
 ```dotenv
 JWT_SECRET_KEY="YOUR-SUPER-SECRET-KEY"
-CONFIG_PATH="./config.yaml" # Path to your config.yaml
+CONFIG_PATH="./config.yaml"     # path to your config.yaml
 DB_USERNAME="YOUR-DB-USERNAME"
 DB_PASSWORD="YOUR-DB-PASSWORD"
-REDIS_PASSWORD="YOUR-REDIS-PASSWORD"
 REDIS_USERNAME="YOUR-REDIS-USERNAME"
+REDIS_PASSWORD="YOUR-REDIS-PASSWORD"
 ```
 
-## 3. Run 🏃‍♂️
-**Next step open your console and run next commands:**
+</details>
 
-**Windows:**
+---
+
+## 🏃 Getting Started
+
+### 1. Run migrations
 
 ```bash
-go build PATH/TO/PROJECT/cmd/main.go
+go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-./main.exe
+migrate -path pkg/database/postgres/migrations \
+  -database "postgres://YOUR_POSTGRES_USERNAME:YOUR_POSTGRES_PASSWORD@localhost:5432/YOUR_DB_NAME?sslmode=disable" \
+  up
 ```
 
-**Linux/MacOS:**
+### 2. Build & run
 
-```Terminal
-go build PATH/TO/PROJECT/cmd/main.go
+**Linux / macOS**
 
+```bash
+go build -o main ./cmd/main.go
 ./main
 ```
 
+**Windows**
 
-**Congratulations you can use this project!**
+```bash
+go build -o main.exe ./cmd/main.go
+./main.exe
+```
+
+### ✅ Done!
+
+The API should now be available at `http://localhost:8000` (or whatever `http.addr` you configured).
+
+---
+
+## 🧰 Tech Stack
+
+- **Go 1.22+** — core language
+- **pgxpool** — PostgreSQL driver & connection pooling
+- **Redis** — caching layer
+- **JWT** — stateless authentication
+- **golang-migrate** — database migrations
+

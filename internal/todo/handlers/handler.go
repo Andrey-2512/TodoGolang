@@ -1,4 +1,4 @@
-package todo
+package handlers
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/config"
+	"todo/internal/optionalconv"
 	"todo/pkg/contextutil"
 	"todo/pkg/jsonrender"
 	"todo/pkg/optional"
@@ -17,10 +17,10 @@ import (
 )
 
 type taskService interface {
-	CreateTask(ctx context.Context, task *entity.Task) (*entity.Task, error)
+	CreateTaskAndCheckLimit(ctx context.Context, task *entity.Task) (*entity.Task, error)
 	GetUserTaskById(ctx context.Context, taskId, userId int) (*entity.Task, error)
 	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
-	UpdateTaskPatch(ctx context.Context, task *UpdatePatchTaskInput) (*entity.Task, error)
+	UpdateTaskPatch(ctx context.Context, task *entity.PatchTask) (*entity.Task, error)
 	DeleteTask(ctx context.Context, id, userId int) error
 	UpdateTaskPut(ctx context.Context, task *entity.Task) (*entity.Task, error)
 }
@@ -29,11 +29,6 @@ type TaskHandler struct {
 	taskService    taskService
 	handlerTimeout time.Duration
 }
-
-func NewTaskHandler(taskService taskService, http config.HTTPServer) *TaskHandler {
-	return &TaskHandler{taskService: taskService, handlerTimeout: http.HandlerTimeout}
-}
-
 type taskCreateRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
@@ -42,6 +37,12 @@ type taskCreateRequest struct {
 type taskUpdatePatchRequest struct {
 	Title       optional.Optional[string] `json:"title"`
 	Description optional.Optional[string] `json:"description"`
+}
+
+type taskResponse struct {
+	Id          int     `json:"id"`
+	Title       *string `json:"title"`
+	Description *string `json:"description,omitzero"`
 }
 
 type taskUpdatePutRequest struct {
@@ -113,10 +114,8 @@ func (r *taskUpdatePutRequest) Validate() error {
 	return nil
 }
 
-type TaskResponse struct {
-	Id          int     `json:"id"`
-	Title       *string `json:"title"`
-	Description *string `json:"description,omitzero"`
+func NewTaskHandler(taskService taskService, handlerTimeout time.Duration) *TaskHandler {
+	return &TaskHandler{taskService: taskService, handlerTimeout: handlerTimeout}
 }
 
 func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
@@ -144,10 +143,10 @@ func (h *TaskHandler) GetAllTasksHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp := make([]TaskResponse, len(tasks))
+	resp := make([]taskResponse, len(tasks))
 
 	for i, task := range tasks {
-		resp[i] = TaskResponse{
+		resp[i] = taskResponse{
 			Id:          task.Id,
 			Title:       task.Title,
 			Description: task.Description,
@@ -202,7 +201,7 @@ func (h *TaskHandler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
+	jsonrender.JSONResponse(taskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 
 }
 
@@ -239,7 +238,7 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	task, err := h.taskService.CreateTask(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
+	task, err := h.taskService.CreateTaskAndCheckLimit(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
 	if err != nil {
 		var limitErr *apperrors.ErrLimitTasksReached
 		if ok := errors.As(err, &limitErr); ok {
@@ -266,7 +265,7 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	}
 
-	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusCreated)
+	jsonrender.JSONResponse(taskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusCreated)
 }
 
 func (h *TaskHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -348,10 +347,10 @@ func (h *TaskHandler) UpdateTaskPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.taskService.UpdateTaskPatch(ctx, &UpdatePatchTaskInput{
+	task, err := h.taskService.UpdateTaskPatch(ctx, &entity.PatchTask{
 		Id:          id,
-		Title:       t.Title,
-		Description: t.Description,
+		Title:       optionalconv.FromJSONToEntity(t.Title),
+		Description: optionalconv.FromJSONToEntity(t.Description),
 		UserId:      userId,
 	})
 
@@ -378,7 +377,7 @@ func (h *TaskHandler) UpdateTaskPatch(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
+	jsonrender.JSONResponse(taskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 }
 
 func (h *TaskHandler) UpdateTaskPut(w http.ResponseWriter, r *http.Request) {
@@ -446,5 +445,5 @@ func (h *TaskHandler) UpdateTaskPut(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-	jsonrender.JSONResponse(TaskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
+	jsonrender.JSONResponse(taskResponse{Id: task.Id, Title: task.Title, Description: task.Description}, w, http.StatusOK)
 }

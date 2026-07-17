@@ -2,18 +2,24 @@ package middlewares
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type CORS struct {
-	allowedOrigins map[string]struct{}
+	allowedOrigins      map[string]struct{}
+	allowedMethods      []string
+	allowedHeaders      []string
+	allowCredentials    bool
+	accessControlMaxAge int
 }
 
-func NewCORSMiddleware(allowedOrigins []string) *CORS {
+func NewCORSMiddleware(allowedOrigins, allowedHeaders, allowedMethods []string, allowCredentials bool, accessControlMaxAge int) *CORS {
 	allowed := make(map[string]struct{})
 	for _, origin := range allowedOrigins {
 		allowed[origin] = struct{}{}
 	}
-	return &CORS{allowedOrigins: allowed}
+	return &CORS{allowedOrigins: allowed, allowedMethods: allowedMethods, allowedHeaders: allowedHeaders, allowCredentials: allowCredentials, accessControlMaxAge: accessControlMaxAge}
 }
 
 func (c *CORS) CORSMiddleware(next http.Handler) http.Handler {
@@ -24,15 +30,15 @@ func (c *CORS) CORSMiddleware(next http.Handler) http.Handler {
 
 		if _, ok := c.allowedOrigins[origin]; ok {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if _, ok := c.allowedOrigins["*"]; ok {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
+			if c.allowCredentials {
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
 		}
 
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-
 		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(c.allowedHeaders, ", "))
+			w.Header().Set("Access-Control-Allow-Methods", strings.Join(c.allowedMethods, ", "))
+			w.Header().Set("Access-Control-Max-Age", strconv.Itoa(c.accessControlMaxAge))
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}

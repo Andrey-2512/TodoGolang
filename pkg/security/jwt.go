@@ -6,7 +6,6 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -26,8 +25,8 @@ type JWTManager struct {
 	refreshTTL time.Duration
 }
 
-func NewJWTManager(jwt config.JWTConfig) *JWTManager {
-	return &JWTManager{secretKey: jwt.SecretKey, accessTTL: jwt.AccessTTL, refreshTTL: jwt.RefreshTTL}
+func NewJWTManager(secretKey string, accessTTL, refreshTTL time.Duration) *JWTManager {
+	return &JWTManager{secretKey: secretKey, accessTTL: accessTTL, refreshTTL: refreshTTL}
 }
 
 func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
@@ -42,7 +41,7 @@ func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duratio
 	return token, nil
 }
 
-func (m *JWTManager) parseToken(jwtToken string, exceptedType string) (*UserClaims, error) {
+func (m *JWTManager) parseToken(jwtToken string, expectedType string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(jwtToken, &UserClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, apperrors.ErrInvalidToken
@@ -63,7 +62,7 @@ func (m *JWTManager) parseToken(jwtToken string, exceptedType string) (*UserClai
 		return nil, apperrors.ErrInvalidToken
 	}
 
-	if claims.TokenType != exceptedType {
+	if claims.TokenType != expectedType {
 		return nil, apperrors.ErrInvalidTokenType
 	}
 

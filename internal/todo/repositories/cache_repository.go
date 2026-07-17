@@ -1,18 +1,25 @@
-package todo
+package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 	"todo/domain/entity"
-	"todo/internal/config"
-
-	"encoding/json"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 )
 
+type taskRepository interface {
+	CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error)
+	GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error)
+	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
+	UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error)
+	Delete(ctx context.Context, id, userId int) error
+	CountTasksUser(ctx context.Context, userId int) (int, error)
+	UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error)
+}
 type CacheTaskRepository struct {
 	taskRepo       taskRepository
 	redisClient    *redis.Client
@@ -30,8 +37,8 @@ func (c *CacheTaskRepository) userTasksKey(userId int) string {
 	return fmt.Sprintf("%s%s%d", c.taskPrefix, c.userTaskPrefix, userId)
 }
 
-func NewCacheTaskRepository(taskRepo taskRepository, redisClient *redis.Client, cache config.CacheConfig) *CacheTaskRepository {
-	return &CacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: cache.TasksPrefix, userTaskPrefix: cache.UserTasksPrefix, cacheTTL: cache.CacheTaskTTL}
+func NewCacheTaskRepository(taskRepo taskRepository, redisClient *redis.Client, tasksPrefix, userTasksPrefix string, cacheTaskTTL time.Duration) *CacheTaskRepository {
+	return &CacheTaskRepository{taskRepo: taskRepo, redisClient: redisClient, taskPrefix: tasksPrefix, userTaskPrefix: userTasksPrefix, cacheTTL: cacheTaskTTL}
 }
 
 func (c *CacheTaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
@@ -111,7 +118,7 @@ func (c *CacheTaskRepository) GetAllUserTasks(ctx context.Context, userId int) (
 
 }
 
-func (c *CacheTaskRepository) UpdatePatch(ctx context.Context, t *UpdatePatchTaskInput) (*entity.Task, error) {
+func (c *CacheTaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error) {
 	updatedTask, err := c.taskRepo.UpdatePatch(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed update task in pg: %w", err)
