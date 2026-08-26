@@ -22,11 +22,11 @@ func NewTaskRepository(db *pgxpool.Pool, maxTasksPerUser int) *TaskRepository {
 }
 
 func (r *TaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task) (*entity.Task, error) {
-
+	const op = "repositories.TaskRepository.CreateAndCheckLimit"
 	tx, err := r.db.Begin(ctx)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed start transaction: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	defer func() {
@@ -38,19 +38,19 @@ func (r *TaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrUserNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrUserNotFound)
 		}
-		return nil, fmt.Errorf("failed block user: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	var count int
 	err = tx.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE user_id = $1", t.UserId).Scan(&count)
 	if err != nil {
-		return nil, fmt.Errorf("failed get count tasks: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if count >= r.limitTasks {
-		return nil, &apperrors.ErrLimitTasksReached{TasksLimit: r.limitTasks}
+		return nil, fmt.Errorf("%s: %w", op, &apperrors.ErrLimitTasksReached{TasksLimit: r.limitTasks})
 	}
 
 	task := &entity.Task{}
@@ -59,60 +59,63 @@ func (r *TaskRepository) CreateAndCheckLimit(ctx context.Context, t *entity.Task
 	err = tx.QueryRow(ctx, query, t.Title, t.Description, t.UserId).Scan(&task.Id, &task.Title, &task.Description, &task.UserId)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed create task: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed commit transaction: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return task, nil
 }
 
 func (r *TaskRepository) GetUserTaskById(ctx context.Context, id, userId int) (*entity.Task, error) {
+	const op = "repositories.TaskRepository.GetUserTaskById"
 	var t entity.Task
-	query := "SELECT id, title, description FROM tasks WHERE id = $1 AND user_id = $2"
-	err := r.db.QueryRow(ctx, query, id, userId).Scan(&t.Id, &t.Title, &t.Description)
+	query := "SELECT id, title, description, user_id FROM tasks WHERE id = $1 AND user_id = $2"
+	err := r.db.QueryRow(ctx, query, id, userId).Scan(&t.Id, &t.Title, &t.Description, &t.UserId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrTaskNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrTaskNotFound)
 		}
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &t, nil
 
 }
 
 func (r *TaskRepository) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
+	const op = "repositories.TaskRepository.GetAllUserTasks"
 	var listTask = make([]entity.Task, 0)
 
-	query := "SELECT id, title, description FROM tasks WHERE user_id = $1 ORDER BY id DESC"
+	query := "SELECT id, title, description, user_id FROM tasks WHERE user_id = $1 ORDER BY id DESC"
 	rows, err := r.db.Query(ctx, query, userId)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all user tasks: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	defer rows.Close()
 
 	for rows.Next() {
 		var t entity.Task
-		err := rows.Scan(&t.Id, &t.Title, &t.Description)
+		err := rows.Scan(&t.Id, &t.Title, &t.Description, &t.UserId)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get all user tasks: %w", err)
+			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 
 		listTask = append(listTask, t)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to get all user tasks: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return listTask, nil
 }
 
 func (r *TaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error) {
+	const op = "repositories.TaskRepository.UpdatePatch"
 	var queryParts []string
 	var args []any
 	argId := 1
@@ -134,7 +137,7 @@ func (r *TaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (
 	}
 
 	if len(queryParts) <= 0 {
-		return nil, apperrors.ErrNoFieldsToUpdate
+		return nil, fmt.Errorf("%s: %w", op, apperrors.ErrNoFieldsToUpdate)
 	}
 
 	args = append(args, t.Id)
@@ -148,10 +151,10 @@ func (r *TaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrTaskNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrTaskNotFound)
 		}
 
-		return nil, fmt.Errorf("failed to update tasks: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &task, nil
@@ -159,6 +162,7 @@ func (r *TaskRepository) UpdatePatch(ctx context.Context, t *entity.PatchTask) (
 }
 
 func (r *TaskRepository) UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error) {
+	const op = "repositories.TaskRepository.UpdatePut"
 	query := "UPDATE tasks SET title = $1, description = $2 WHERE id = $3 AND user_id = $4 RETURNING id, title, description, user_id"
 
 	var updatedTask entity.Task
@@ -167,35 +171,37 @@ func (r *TaskRepository) UpdatePut(ctx context.Context, t *entity.Task) (*entity
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrTaskNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrTaskNotFound)
 		}
 
-		return nil, fmt.Errorf("failed to update tasks: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &updatedTask, nil
 }
 
 func (r *TaskRepository) Delete(ctx context.Context, id, userId int) error {
+	const op = "repositories.TaskRepository.Delete"
 	result, err := r.db.Exec(ctx, "DELETE FROM tasks WHERE id = $1 AND user_id = $2", id, userId)
 	if err != nil {
 
-		return fmt.Errorf("failed to delete user task: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	rows := result.RowsAffected()
 
 	if rows == 0 {
-		return apperrors.ErrTaskNotFound
+		return fmt.Errorf("%s: %w", op, apperrors.ErrTaskNotFound)
 	}
 
 	return nil
 }
 
 func (r *TaskRepository) CountTasksUser(ctx context.Context, userId int) (int, error) {
+	const op = "repositories.TaskRepository.CountTasksUser"
 	var count int
 	query := "SELECT COUNT(id) FROM tasks WHERE user_id = $1"
 	err := r.db.QueryRow(ctx, query, userId).Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get count tasks: %w", err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	return count, nil
 }

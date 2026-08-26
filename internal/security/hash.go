@@ -29,10 +29,11 @@ func NewHasher(time, memory, keyLen uint32, saltLength, threads uint8) *Hasher {
 }
 
 func (h *Hasher) Hash(password string) (string, error) {
+	const op = "security.Hasher.Hash"
 	salt := make([]byte, h.saltLength)
 
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("failed to hash: %w", err)
+		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	hashPassword := argon2.IDKey([]byte(password), salt, h.time, h.memory, h.threads, h.keyLen)
 
@@ -46,6 +47,8 @@ func (h *Hasher) Hash(password string) (string, error) {
 }
 
 func (h *Hasher) Verify(hashPassword string, password string) (bool, error) {
+	const op = "security.Hasher.Verify"
+
 	var m, t uint32
 	var p uint8
 	var version int
@@ -53,31 +56,31 @@ func (h *Hasher) Verify(hashPassword string, password string) (bool, error) {
 	parts := strings.Split(hashPassword, "$")
 
 	if len(parts) != 6 {
-		return false, fmt.Errorf("invalid hash password")
+		return false, fmt.Errorf("%s: invalid hash format", op)
 	}
 
 	_, err := fmt.Sscanf(parts[2], "v=%d", &version)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse version: %w", err)
+		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if version != argon2.Version {
-		return false, fmt.Errorf("incorrect version hash want %d but got %d", argon2.Version, version)
+		return false, fmt.Errorf("%s: incorrect version hash want %d but got %d", op, argon2.Version, version)
 	}
 
 	_, err = fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &m, &t, &p)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse memory, time, threads: %w", err)
+		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
-		return false, fmt.Errorf("failed to decode salt: %w", err)
+		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
 	decodedHash, err := base64.RawStdEncoding.DecodeString(parts[5])
 	if err != nil {
-		return false, fmt.Errorf("failed to decode hash: %w", err)
+		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
 	comparisonHash := argon2.IDKey([]byte(password), salt, t, m, p, uint32(len(decodedHash)))

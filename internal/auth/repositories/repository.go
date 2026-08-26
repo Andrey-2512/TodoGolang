@@ -19,13 +19,15 @@ type WhitelistRepository struct {
 }
 
 func (w *WhitelistRepository) Del(ctx context.Context, jti string) error {
+	const op = "repositories.WhitelistRepository.Del"
 	err := w.redisClient.Del(ctx, w.prefix+jti).Err()
 	if err != nil {
-		return fmt.Errorf("failed to del in whitelist: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil
 }
 func (w *WhitelistRepository) ConsumeAndAddToken(ctx context.Context, jti, newJti string, exp time.Duration) error {
+	const op = "repositories.WhitelistRepository.ConsumeAndAddToken"
 	script := redis.NewScript(
 		`local exists = redis.call("EXISTS", KEYS[1])
 			if exists == 1 then
@@ -39,19 +41,20 @@ func (w *WhitelistRepository) ConsumeAndAddToken(ctx context.Context, jti, newJt
 	res, err := script.Run(ctx, w.redisClient, []string{w.prefix + jti, w.prefix + newJti}, "true", exp.Milliseconds()).Int()
 
 	if err != nil {
-		return fmt.Errorf("failed to consume token %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	if res == 0 {
-		return apperrors.ErrTokenNotInWhitelist
+		return fmt.Errorf("%s: %w", op, apperrors.ErrTokenNotInWhitelist)
 	}
 	return nil
 }
 
 func (w *WhitelistRepository) Add(ctx context.Context, jti string, exp time.Duration) error {
+	const op = "repositories.WhitelistRepository.Add"
 	err := w.redisClient.Set(ctx, w.prefix+jti, "true", exp).Err()
 	if err != nil {
-		return fmt.Errorf("failed to add to whitelist: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil

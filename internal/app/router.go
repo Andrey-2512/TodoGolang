@@ -3,10 +3,10 @@ package app
 import (
 	"net/http"
 	"todo/internal/auth/handlers"
+	"todo/internal/jsonrender"
 	"todo/internal/middlewares"
 	todohandlers "todo/internal/todo/handlers"
 	usershandlers "todo/internal/users/handlers"
-	"todo/pkg/jsonrender"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

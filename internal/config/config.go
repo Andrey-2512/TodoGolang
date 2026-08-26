@@ -34,7 +34,7 @@ type HashConfig struct {
 
 type HTTPServer struct {
 	Addr                string        `yaml:"addr" env-default:":8080"`
-	CORSUrl             []string      `yaml:"cors_url" env-default:"http://localhost:8080"`
+	CORSUrl             []string      `env:"CORS_URL" env-required:"true"`
 	AllowCredentials    bool          `yaml:"allow_credentials" env-default:"false"`
 	AllowMethods        []string      `yaml:"allow_methods" env-default:"GET,POST,PUT,PATCH,DELETE,OPTIONS"`
 	AllowHeaders        []string      `yaml:"allow_headers" env-default:"Authorization, Content-Type"`
@@ -43,26 +43,26 @@ type HTTPServer struct {
 	ReadTimeout         time.Duration `yaml:"read_timeout" env-default:"15s"`
 	WriteTimeout        time.Duration `yaml:"write_timeout" env-default:"10s"`
 	HandlerTimeout      time.Duration `yaml:"handler_timeout" env-default:"5s"`
-	CookieSecure        bool          `yaml:"cookie_secure" env-default:"true"`
+	CookieSecure        bool          `env:"COOKIE_SECURE" env-required:"true"`
 }
 
 type DatabaseConfig struct {
-	Host            string        `yaml:"host" env-default:"localhost"`
-	Name            string        `yaml:"name" env-required:"true"`
+	Host            string        `env:"DB_HOST" env-default:"localhost"`
+	Name            string        `env:"DB_NAME" env-required:"true"`
 	MaxIdleConns    int32         `yaml:"max_idle_conns" env-default:"25"`
 	MaxOpenConns    int32         `yaml:"max_open_conns" env-default:"100"`
 	MaxConnLifetime time.Duration `yaml:"max_conn_lifetime" env-default:"1h"`
-	Port            int           `yaml:"port" env-default:"5432"`
+	Port            int           `env:"DB_PORT" env-required:"true"`
 	Username        string        `env:"DB_USERNAME" env-required:"true"`
 	Password        string        `env:"DB_PASSWORD" env-required:"true"`
 	ConnTimeout     time.Duration `yaml:"conn_timeout" env-default:"30s"`
 }
 
 type RedisConfig struct {
-	Addr            string        `yaml:"addr" env-default:"localhost:6379"`
+	Addr            string        `env:"REDIS_ADDR" env-required:"true"`
 	Password        string        `env:"REDIS_PASSWORD" env-required:"true"`
 	Username        string        `env:"REDIS_USERNAME" env-required:"true"`
-	DB              int           `yaml:"db" env-default:"0"`
+	DB              int           `env:"REDIS_DB" env-required:"true"`
 	MinIdleConns    int           `yaml:"min_idle_conns" env-default:"100"`
 	PoolSize        int           `yaml:"pool_size" env-default:"100"`
 	ReadTimeout     time.Duration `yaml:"read_timeout" env-default:"1s"`

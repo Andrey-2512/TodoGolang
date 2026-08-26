@@ -4,7 +4,7 @@
 
 **High-performance Task Management API built with Go & Clean Architecture**
 
-[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat-square&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27%2B-00ADD8?style=flat-square&logo=go)](https://go.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgxpool-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-cache-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](#)
@@ -27,37 +27,13 @@
 
 ---
 
-## 🏗 Architecture Overview
-
-The project follows a **layered (Clean) architecture**, keeping business logic isolated from infrastructure concerns:
-
-| Layer | Responsibility |
-|---|---|
-| **Domain** | Entities and business logic interfaces |
-| **Service** | Business logic implementation |
-| **Repository** | PostgreSQL interaction via `pgxpool` |
-| **Delivery** | HTTP handlers and middleware |
-
-```
-cmd/            → application entrypoint
-internal/
-  domain/       → entities & interfaces
-  service/      → business logic
-  repository/   → data access (Postgres)
-  delivery/     → HTTP handlers, middleware, routing
-pkg/
-  database/     → migrations & DB connection setup
-```
-
----
-
 ## ⚙️ Prerequisites
 
 | Dependency | Version |
-|---|---|
-| Go | `1.22+` |
-| PostgreSQL | `latest` |
-| Redis | `latest` |
+|---|---------|
+| Go | `1.27+` |
+| PostgreSQL | `13+`   |
+| Redis | `7+`    |
 
 ---
 
@@ -104,7 +80,7 @@ pkg/
 **Partial update (`PATCH`) payload:**
 ```json
 {
-  // send only the fields you want to update — at least one is required
+  // send only the fields you want to update
   "title": "Update EXAMPLE",
   "description": "Update EXAMPLE"
 }
@@ -135,8 +111,6 @@ hash:
 
 http:
   addr: "0.0.0.0:8000"
-  cors_url:
-    - "http://localhost:5050"
   allow_credentials: true
   allow_methods:
     - "GET"
@@ -152,7 +126,6 @@ http:
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
-  cookie_secure: false
   handler_timeout: "5s"
 
 jwt:
@@ -161,17 +134,12 @@ jwt:
   whitelist_prefix: "wl:"
 
 database:
-  host: "localhost"
-  port: 5432
-  name: "go_todo_db"
-  max_idle_conns: 20
-  max_open_conns: 80
+  max_idle_conns: 100
+  max_open_conns: 100
   max_conn_lifetime: "1h"
   conn_timeout: "10s"
 
 redis:
-  addr: "localhost:6379"
-  db: 0
   min_idle_conns: 100
   pool_size: 100
   read_timeout: "500ms"
@@ -194,12 +162,19 @@ app:
 <summary><strong>.env</strong></summary>
 
 ```dotenv
-JWT_SECRET_KEY="YOUR-SUPER-SECRET-KEY"
-CONFIG_PATH="./config.yaml"     # path to your config.yaml
+JWT_SECRET_KEY="YOUR-JWT-SECRET-KEY"
+CONFIG_PATH="YOUR-CONFIG-YAML-PATH"
 DB_USERNAME="YOUR-DB-USERNAME"
 DB_PASSWORD="YOUR-DB-PASSWORD"
 REDIS_USERNAME="YOUR-REDIS-USERNAME"
 REDIS_PASSWORD="YOUR-REDIS-PASSWORD"
+CORS_URL="YOUR-CORS-URLS"
+DB_HOST="YOUR-DB-HOST"
+DB_PORT=YOUR-DB-PORT
+DB_NAME="YOUR-DB-NAME"
+COOKIE_SECURE=false
+REDIS_ADDR="YOUR-REDIS-ADDR"
+REDIS_DB=YOUR-REDIS-DB
 ```
 
 </details>
@@ -240,11 +215,5 @@ The API should now be available at `http://localhost:8000` (or whatever `http.ad
 
 ---
 
-## 🧰 Tech Stack
 
-- **Go 1.22+** — core language
-- **pgxpool** — PostgreSQL driver & connection pooling
-- **Redis** — caching layer
-- **JWT** — stateless authentication
-- **golang-migrate** — database migrations
 

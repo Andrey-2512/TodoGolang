@@ -2,7 +2,7 @@ package optionalconv
 
 import (
 	"todo/domain/entity"
-	"todo/pkg/optional"
+	"todo/internal/optional"
 )
 
 func FromJSONToEntity[T any](opt optional.Optional[T]) entity.Optional[T] {

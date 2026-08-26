@@ -20,10 +20,11 @@ func NewProfileService(taskRepo taskRepository, maxTasksPerUser int) *ProfileSer
 }
 
 func (p *ProfileService) GetProfile(ctx context.Context, userId int, username string) (*entity.UserProfile, error) {
+	const op = "services.ProfileService.GetProfile"
 	count, err := p.taskRepo.CountTasksUser(ctx, userId)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed get profile: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &entity.UserProfile{Username: username, CurrentTasks: count, TasksLimit: p.tasksLimit}, nil

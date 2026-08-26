@@ -7,8 +7,6 @@ hash:
 
 http:
   addr: "0.0.0.0:8000"
-  cors_url:
-  - "http://localhost:5050"
   allow_credentials: true
   allow_methods:
     - "GET"
@@ -24,7 +22,6 @@ http:
   idle_timeout: "60s"
   read_timeout: "20s"
   write_timeout: "30s"
-  cookie_secure: false
   handler_timeout: "5s"
 
 jwt:
@@ -33,17 +30,12 @@ jwt:
   whitelist_prefix: "wl:"
 
 database:
-  host: "localhost"
-  port: 5432
-  name: "go_todo_db"
   max_idle_conns: 100
   max_open_conns: 100
   max_conn_lifetime: "1h"
   conn_timeout: "10s"
 
 redis:
-  addr: "localhost:6379"
-  db: 0
   min_idle_conns: 100
   pool_size: 100
   read_timeout: "500ms"

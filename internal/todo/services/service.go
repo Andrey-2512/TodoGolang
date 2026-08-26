@@ -25,49 +25,55 @@ func NewTaskService(repo taskRepository) *TaskService {
 }
 
 func (t *TaskService) CreateTaskAndCheckLimit(ctx context.Context, task *entity.Task) (*entity.Task, error) {
+	const op = "services.TaskService.CreateTaskAndCheckLimit"
 	createdTask, err := t.repo.CreateAndCheckLimit(ctx, task)
 	if err != nil {
-		return nil, fmt.Errorf("failed create task: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return createdTask, nil
 }
 
 func (t *TaskService) GetUserTaskById(ctx context.Context, taskId, userId int) (*entity.Task, error) {
+	const op = "services.TaskService.GetUserTaskById"
 	task, err := t.repo.GetUserTaskById(ctx, taskId, userId)
 	if err != nil {
-		return nil, fmt.Errorf("failed get user task by id: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return task, nil
 }
 
 func (t *TaskService) GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error) {
+	const op = "services.TaskService.GetAllUserTasks"
 	tasks, err := t.repo.GetAllUserTasks(ctx, userId)
 	if err != nil {
-		return nil, fmt.Errorf("failed get all user tasks by user id: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return tasks, nil
 }
 
 func (t *TaskService) UpdateTaskPatch(ctx context.Context, task *entity.PatchTask) (*entity.Task, error) {
+	const op = "services.TaskService.UpdateTaskPatch"
 	updatedTask, err := t.repo.UpdatePatch(ctx, task)
 	if err != nil {
-		return nil, fmt.Errorf("failed update task: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return updatedTask, nil
 }
 
 func (t *TaskService) UpdateTaskPut(ctx context.Context, task *entity.Task) (*entity.Task, error) {
+	const op = "services.TaskService.UpdateTaskPut"
 	updatedTask, err := t.repo.UpdatePut(ctx, task)
 	if err != nil {
-		return nil, fmt.Errorf("failed update task: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return updatedTask, nil
 }
 
 func (t *TaskService) DeleteTask(ctx context.Context, id, userId int) error {
+	const op = "services.TaskService.DeleteTask"
 	err := t.repo.Delete(ctx, id, userId)
 	if err != nil {
-		return fmt.Errorf("failed delete task: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil
 }

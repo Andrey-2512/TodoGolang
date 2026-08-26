@@ -32,9 +32,7 @@ func (e Errors) Error() string {
 	}
 	slices.Sort(keys)
 
-	if index > 0 {
-		totalLen += len("; ") * (index - 1)
-	}
+	totalLen += len("; ") * (index - 1)
 
 	builder.Grow(totalLen)
 

@@ -9,11 +9,11 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
+	"todo/internal/contextutil"
+	"todo/internal/jsonrender"
+	"todo/internal/optional"
 	"todo/internal/optionalconv"
-	"todo/pkg/contextutil"
-	"todo/pkg/jsonrender"
-	"todo/pkg/optional"
-	"todo/pkg/validation"
+	"todo/internal/validation"
 )
 
 type taskService interface {
@@ -240,8 +240,7 @@ func (h *TaskHandler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	task, err := h.taskService.CreateTaskAndCheckLimit(ctx, &entity.Task{Title: t.Title, Description: t.Description, UserId: userId})
 	if err != nil {
-		var limitErr *apperrors.ErrLimitTasksReached
-		if ok := errors.As(err, &limitErr); ok {
+		if limitErr, ok := errors.AsType[*apperrors.ErrLimitTasksReached](err); ok {
 			jsonrender.JSONResponse(map[string]any{"detail": fmt.Sprintf("Sorry, you have reached your task limit (%d), please delete unnecessary tasks and try again", limitErr.TasksLimit)}, w, http.StatusUnprocessableEntity)
 			return
 

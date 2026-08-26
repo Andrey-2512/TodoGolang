@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"todo/domain/apperrors"
-	"todo/pkg/contextutil"
-	"todo/pkg/jsonrender"
-	"todo/pkg/security"
+	"todo/internal/contextutil"
+	"todo/internal/jsonrender"
+	"todo/internal/security"
 )
 
 type Auth struct {

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 	"todo/domain/entity"
-	"todo/pkg/contextutil"
-	"todo/pkg/jsonrender"
+	"todo/internal/contextutil"
+	"todo/internal/jsonrender"
 )
 
 type profileService interface {

@@ -9,8 +9,8 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/pkg/jsonrender"
-	"todo/pkg/validation"
+	"todo/internal/jsonrender"
+	"todo/internal/validation"
 )
 
 type AuthHandler struct {

@@ -22,6 +22,7 @@ func NewUsersRepository(db *pgxpool.Pool) *UsersRepository {
 }
 
 func (u *UsersRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
+	const op = "repositories.UsersRepository.Create"
 	query := "INSERT INTO users (username, hash_password) VALUES ($1, $2) RETURNING id"
 
 	var id int
@@ -31,10 +32,10 @@ func (u *UsersRepository) Create(ctx context.Context, user *entity.User) (*entit
 	if err != nil {
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 			if pgErr.Code == pgerrcode.UniqueViolation {
-				return nil, apperrors.ErrUserAlreadyExists
+				return nil, fmt.Errorf("%s: %w", op, apperrors.ErrUserAlreadyExists)
 			}
 		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &entity.User{
@@ -46,6 +47,7 @@ func (u *UsersRepository) Create(ctx context.Context, user *entity.User) (*entit
 }
 
 func (u *UsersRepository) GetById(ctx context.Context, id int) (*entity.User, error) {
+	const op = "repositories.UsersRepository.GetById"
 	var user entity.User
 	query := "SELECT id, username, hash_password FROM users WHERE id = $1"
 
@@ -53,9 +55,9 @@ func (u *UsersRepository) GetById(ctx context.Context, id int) (*entity.User, er
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrUserNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrUserNotFound)
 		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &user, nil
@@ -63,6 +65,7 @@ func (u *UsersRepository) GetById(ctx context.Context, id int) (*entity.User, er
 }
 
 func (u *UsersRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
+	const op = "repositories.UsersRepository.GetByUsername"
 	var user entity.User
 	query := "SELECT id, username, hash_password FROM users WHERE username = $1"
 
@@ -70,21 +73,11 @@ func (u *UsersRepository) GetByUsername(ctx context.Context, username string) (*
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.ErrUserNotFound
+			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrUserNotFound)
 		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &user, nil
 
-}
-
-func (u *UsersRepository) Exists(ctx context.Context, username string) (bool, error) {
-	query := "SELECT EXISTS(SELECT FROM users WHERE username = $1)"
-	var exists bool
-	err := u.db.QueryRow(ctx, query, username).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check if user exists: %w", err)
-	}
-	return exists, nil
 }

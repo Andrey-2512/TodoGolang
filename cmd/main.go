@@ -44,7 +44,7 @@ func main() {
 
 	select {
 	case err := <-serverShutdown:
-		log.Printf("Не удалось запустить сервер: %v", err)
+		log.Printf("failed to start server: %v\n", err)
 	case <-shutdown:
 	}
 
@@ -52,9 +52,9 @@ func main() {
 	defer cancel()
 
 	if err = application.Shutdown(ctx); err != nil {
-		log.Printf("Failed to shutdown app: %v", err)
+		log.Printf("failed to shutdown app: %v", err)
 	}
 
-	fmt.Println("Сервер успешно завершил работу")
+	fmt.Println("server stopped successfully")
 
 }
