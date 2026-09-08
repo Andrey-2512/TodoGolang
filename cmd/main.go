@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-
 	"todo/internal/app"
 	"todo/internal/config"
 
@@ -48,7 +46,7 @@ func main() {
 	case <-shutdown:
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.App.ShutdownTimeout)
 	defer cancel()
 
 	if err = application.Shutdown(ctx); err != nil {

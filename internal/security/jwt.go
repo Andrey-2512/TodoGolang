@@ -6,13 +6,12 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-
 	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type UserClaims struct {
+type userClaims struct {
 	UserId    int    `json:"user_id"`
 	Username  string `json:"username"`
 	TokenType string `json:"token_type"`
@@ -30,11 +29,9 @@ func NewJWTManager(secretKey string, accessTTL, refreshTTL time.Duration) *JWTMa
 	return &JWTManager{secretKey: secretKey, accessTTL: accessTTL, refreshTTL: refreshTTL}
 }
 
-func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duration, tokenType string) (string, error) {
+func (m *JWTManager) createToken(userId int, username string, duration time.Duration, tokenType string) (string, error) {
 	const op = "security.JWTManager.createToken"
-	claims := UserClaims{Username: user.Username, UserId: user.UserID, TokenType: tokenType, JTI: uuid.New().String(), RegisteredClaims: jwt.RegisteredClaims{
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
-	}}
+	claims := userClaims{Username: username, UserId: userId, TokenType: tokenType, JTI: uuid.New().String(), ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration))}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(m.secretKey))
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
@@ -43,9 +40,9 @@ func (m *JWTManager) createToken(user *entity.UserPayload, duration time.Duratio
 	return token, nil
 }
 
-func (m *JWTManager) parseToken(jwtToken string, expectedType string) (*UserClaims, error) {
+func (m *JWTManager) parseToken(jwtToken string, expectedType string) (*entity.UserClaims, error) {
 	const op = "security.JWTManager.parseToken"
-	token, err := jwt.ParseWithClaims(jwtToken, &UserClaims{}, func(t *jwt.Token) (any, error) {
+	token, err := jwt.ParseWithClaims(jwtToken, &userClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("%s: %w", op, apperrors.ErrInvalidToken)
 		}
@@ -60,7 +57,7 @@ func (m *JWTManager) parseToken(jwtToken string, expectedType string) (*UserClai
 		return nil, fmt.Errorf("%s: %w", op, apperrors.ErrInvalidToken)
 	}
 
-	claims, ok := token.Claims.(*UserClaims)
+	claims, ok := token.Claims.(*userClaims)
 	if !ok || !token.Valid {
 		return nil, fmt.Errorf("%s: %w", op, apperrors.ErrInvalidToken)
 	}
@@ -69,19 +66,19 @@ func (m *JWTManager) parseToken(jwtToken string, expectedType string) (*UserClai
 		return nil, fmt.Errorf("%s: %w", op, apperrors.ErrInvalidTokenType)
 	}
 
-	return claims, nil
+	return &entity.UserClaims{UserId: claims.UserId, Username: claims.Username, TokenType: claims.TokenType, ExpiresAt: claims.ExpiresAt.Time, JTI: claims.JTI}, nil
 }
 
-func (m *JWTManager) CreateAccessToken(user *entity.UserPayload) (string, error) {
+func (m *JWTManager) CreateAccessToken(userId int, username string) (string, error) {
 	const op = "security.JWTManager.CreateAccessToken"
-	access, err := m.createToken(user, m.accessTTL, "access")
+	access, err := m.createToken(userId, username, m.accessTTL, "access")
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	return access, nil
 }
 
-func (m *JWTManager) ParseAccessToken(jwtToken string) (*UserClaims, error) {
+func (m *JWTManager) ParseAccessToken(jwtToken string) (*entity.UserClaims, error) {
 	const op = "security.JWTManager.ParseAccessToken"
 	claims, err := m.parseToken(jwtToken, "access")
 	if err != nil {
@@ -90,16 +87,16 @@ func (m *JWTManager) ParseAccessToken(jwtToken string) (*UserClaims, error) {
 	return claims, nil
 }
 
-func (m *JWTManager) CreateRefreshToken(user *entity.UserPayload) (string, error) {
+func (m *JWTManager) CreateRefreshToken(userId int, username string) (string, error) {
 	const op = "security.JWTManager.CreateRefreshToken"
-	refresh, err := m.createToken(user, m.refreshTTL, "refresh")
+	refresh, err := m.createToken(userId, username, m.refreshTTL, "refresh")
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	return refresh, nil
 }
 
-func (m *JWTManager) ParseRefreshToken(jwtToken string) (*UserClaims, error) {
+func (m *JWTManager) ParseRefreshToken(jwtToken string) (*entity.UserClaims, error) {
 	const op = "security.JWTManager.ParseRefreshToken"
 	claims, err := m.parseToken(jwtToken, "refresh")
 	if err != nil {

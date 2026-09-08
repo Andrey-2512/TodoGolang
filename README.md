@@ -110,7 +110,7 @@ hash:
   salt_length: 16
 
 http:
-  addr: "0.0.0.0:8000"
+  addr: ":8000"
   allow_credentials: true
   allow_methods:
     - "GET"
@@ -154,6 +154,7 @@ cache:
 
 app:
   max_tasks_per_user: 500
+  shutdown_timeout: "10s"
 ```
 
 </details>

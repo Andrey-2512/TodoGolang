@@ -7,7 +7,6 @@ import (
 	"time"
 	"todo/domain/apperrors"
 	"todo/domain/entity"
-	"todo/internal/security"
 )
 
 type AuthService struct {
@@ -18,10 +17,9 @@ type AuthService struct {
 }
 
 type jwtManager interface {
-	CreateAccessToken(user *entity.UserPayload) (string, error)
-	ParseAccessToken(jwtToken string) (*security.UserClaims, error)
-	CreateRefreshToken(user *entity.UserPayload) (string, error)
-	ParseRefreshToken(jwtToken string) (*security.UserClaims, error)
+	CreateAccessToken(userId int, username string) (string, error)
+	CreateRefreshToken(userId int, username string) (string, error)
+	ParseRefreshToken(jwtToken string) (*entity.UserClaims, error)
 }
 type usersRepository interface {
 	GetById(ctx context.Context, id int) (*entity.User, error)
@@ -75,11 +73,11 @@ func (u *AuthService) Login(ctx context.Context, user *entity.User) (string, str
 		return "", "", fmt.Errorf("%s: %w", op, apperrors.ErrInvalidAuthCredentials)
 	}
 
-	accessToken, err := u.jwt.CreateAccessToken(&entity.UserPayload{UserID: userDB.Id, Username: userDB.Username})
+	accessToken, err := u.jwt.CreateAccessToken(userDB.Id, userDB.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
-	refreshToken, err := u.jwt.CreateRefreshToken(&entity.UserPayload{UserID: userDB.Id, Username: userDB.Username})
+	refreshToken, err := u.jwt.CreateRefreshToken(userDB.Id, userDB.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -88,7 +86,7 @@ func (u *AuthService) Login(ctx context.Context, user *entity.User) (string, str
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
-	err = u.whitelist.Add(ctx, claims.JTI, time.Until(claims.ExpiresAt.Time))
+	err = u.whitelist.Add(ctx, claims.JTI, time.Until(claims.ExpiresAt))
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -113,14 +111,12 @@ func (u *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	payload := entity.UserPayload{UserID: userId, Username: user.Username}
-
-	access, err := u.jwt.CreateAccessToken(&payload)
+	access, err := u.jwt.CreateAccessToken(userId, user.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	refresh, err := u.jwt.CreateRefreshToken(&payload)
+	refresh, err := u.jwt.CreateRefreshToken(userId, user.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -130,7 +126,7 @@ func (u *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	ttl := time.Until(claimsNewRefresh.ExpiresAt.Time)
+	ttl := time.Until(claimsNewRefresh.ExpiresAt)
 
 	err = u.whitelist.ConsumeAndAddToken(ctx, claims.JTI, claimsNewRefresh.JTI, ttl)
 	if err != nil {

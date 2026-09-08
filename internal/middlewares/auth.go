@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"todo/domain/apperrors"
+	"todo/domain/entity"
 	"todo/internal/contextutil"
 	"todo/internal/jsonrender"
-	"todo/internal/security"
 )
 
 type Auth struct {
@@ -15,7 +15,7 @@ type Auth struct {
 }
 
 type jwtManager interface {
-	ParseAccessToken(jwtToken string) (*security.UserClaims, error)
+	ParseAccessToken(jwtToken string) (*entity.UserClaims, error)
 }
 
 func NewAuthMiddleware(jwtManager jwtManager) *Auth {

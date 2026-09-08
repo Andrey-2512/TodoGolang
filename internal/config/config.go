@@ -78,16 +78,18 @@ type CacheConfig struct {
 }
 
 type AppConfig struct {
-	MaxTasksPerUser int `yaml:"max_tasks_per_user" env-default:"100"`
+	MaxTasksPerUser int           `yaml:"max_tasks_per_user" env-default:"100"`
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env-default:"15s"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
+	const op = "config.LoadConfig"
 	if configPath == "" {
-		return nil, fmt.Errorf("failed to get config, incorrect config path")
+		return nil, fmt.Errorf("%s: incorrect config path", op)
 	}
 	var cfg Config
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		return nil, fmt.Errorf("failed load config: %w", err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &cfg, nil

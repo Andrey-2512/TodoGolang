@@ -16,7 +16,6 @@ type taskRepository interface {
 	GetAllUserTasks(ctx context.Context, userId int) ([]entity.Task, error)
 	UpdatePatch(ctx context.Context, t *entity.PatchTask) (*entity.Task, error)
 	Delete(ctx context.Context, id, userId int) error
-	CountTasksUser(ctx context.Context, userId int) (int, error)
 	UpdatePut(ctx context.Context, t *entity.Task) (*entity.Task, error)
 }
 
